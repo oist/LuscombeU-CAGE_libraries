@@ -6,12 +6,13 @@ sequences (`ACTCATCCCATTTTTGAGTCCGATTTCGATTGTCTAACAG`) were recognised with
 the [TagDust](https://doi.org/10.1186/s12859-015-0454-y) program embedded
 in a _Nextflow_ pipeline, producing two sets of read pairs per sample.
 
-Sequences matching the rDNA region of the PAR of chr3 were removed by the
-sortmerna tool in the nf-core rna-seq pipeline.  We did not use TagDust, as it
-removed large numbers of reads that do not match rDNA well...
+Sequences matching the ribosomal DNA (rDNA) region of the pseudo-autosomal
+region (PAR) of chromosome 3 were removed by the _sortmerna_ tool in the
+_nf-core_ rna-seq pipeline.  We did not use TagDust, as it removed large
+numbers of reads that do not match rDNA well...
 
-As a control, Read 1 and Read 2 were aligned alone in single-end mode.  It
-showed that alignment rate was increased by trimming Read 2, but not Read 1.
+As a control, Read 1 (R1) and Read 2 (R2) were aligned alone in single-end
+mode.  It showed that alignment rate was increased by trimming R2, but not R1.
 We decided to remove 70 bp from R2.  At this value, multimapping starts to
 increase and alignment rate and exon rate stop to increase.  5' bias stops to
 decrease.  Error rate does not stop to decrease.
@@ -21,9 +22,9 @@ and this part of the reads has a different base sequence composition.  This
 said, it did not make a practical difference in terms of alignment success in
 single-end control mapping of R2 alone.
 
-Trimgalore finds few Illumina adapter sequences although we used a MGI
-sequencer.  We tolerate these false positives as we need to trim for length
-anyway.
+[Trimgalore](https://www.bioinformatics.babraham.ac.uk/projects/trim_galore/)
+finds few Illumina adapter sequences although a [MGI sequencer](https://en.mgi-tech.com/products/)
+was used.  We tolerate these false positives as we need to trim for length anyway.
 
 The CAGE libraries were then aligned paired-end.
 
