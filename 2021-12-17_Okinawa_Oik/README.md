@@ -1,9 +1,10 @@
 CAGE libraries from Oikopleura dioica (Kin bay)
 ===============================================
 
-Splice leader sequences (ACTCATCCCATTTTTGAGTCCGATTTCGATTGTCTAACAG) were
-recognised with the TagDust program embedded in a Nextflow pipeline, producing
-two sets of read pairs per sample.
+[Splice leader](https://doi.org/10.1128/MCB.24.17.7795-7805.2004)
+sequences (`ACTCATCCCATTTTTGAGTCCGATTTCGATTGTCTAACAG`) were recognised with
+the [TagDust](https://doi.org/10.1186/s12859-015-0454-y) program embedded
+in a _Nextflow_ pipeline, producing two sets of read pairs per sample.
 
 Sequences matching the rDNA region of the PAR of chr3 were removed by the
 sortmerna tool in the nf-core rna-seq pipeline.  We did not use TagDust, as it
