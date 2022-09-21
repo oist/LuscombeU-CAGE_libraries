@@ -7,9 +7,10 @@ the [TagDust](https://doi.org/10.1186/s12859-015-0454-y) program embedded
 in a _Nextflow_ pipeline, producing two sets of read pairs per sample.
 
 Sequences matching the ribosomal DNA (rDNA) region of the pseudo-autosomal
-region (PAR) of chromosome 3 were removed by the _sortmerna_ tool in the
-_nf-core_ rna-seq pipeline.  We did not use TagDust, as it removed large
-numbers of reads that do not match rDNA well...
+region (PAR) of chromosome 3 were removed by the
+[sortmerna](https://doi.org/10.1093/bioinformatics/bts611) tool in the
+_nf-core_ [rnaseq](https://nf-co.re/rnaseq) pipeline.  We did not use TagDust,
+as it removed large numbers of reads that do not match rDNA well...
 
 As a control, Read 1 (R1) and Read 2 (R2) were aligned alone in single-end
 mode.  It showed that alignment rate was increased by trimming R2, but not R1.
