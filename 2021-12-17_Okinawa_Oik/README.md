@@ -38,8 +38,12 @@ We could not convert the resulting alignments to BED12 format because the
 pairedBAMtoBED12 does not handle the case when R1 and R2 overlap and both
 align to the same splice junction.
 
+Alignments in BAM format were clustered with the Bioconductor package
+[CAGEr](https://bioconductor.org/packages/CAGEr) and exported to BED and BED12
+formats for upload in the [ZENBU genome browser](https://fantom.gsc.riken.jp/zenbu)
+using the [zenbu_upload](https://github.com/jessica-severin/ZENBU) command-line tool.
+
 TO Do:
 
-Upload the aligned reads to ZENBU.  Check
-the unaligned reads that BLAST well: do they match regions with aligned reads or do they
+Check the unaligned reads that BLAST well: do they match regions with aligned reads or do they
 highlight blind spots ?
