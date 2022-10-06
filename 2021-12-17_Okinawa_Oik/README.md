@@ -85,8 +85,11 @@ Alignments in BAM format were clustered with the Bioconductor package
 [CAGEr](https://bioconductor.org/packages/CAGEr) and exported to BED and BED12
 formats for upload in the [ZENBU genome browser](https://fantom.gsc.riken.jp/zenbu)
 using the [zenbu_upload](https://github.com/jessica-severin/ZENBU) command-line tool.
+Some notes can be found in the [CAGEr.Rmd](CAGEr.Rmd) file.
 
 TO Do:
 
 Check the unaligned reads that BLAST well: do they match regions with aligned reads or do they
 highlight blind spots ?
+
+Tidy CAGEr.Rmd, and give it a proper Rmarkdown parameter handling.
