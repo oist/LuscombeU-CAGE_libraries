@@ -1,6 +1,11 @@
 CAGE libraries from Oikopleura dioica (Osaka lab strain)
 ========================================================
 
+Samples were taked from three different time points: embryonic (EB), juvenile day2 (D2)
+or adult (DE).  Biological replicates are indicated with different numbers (DE1/DE2, …).
+Biological replicates were loosely staged in order to screen a broader set of
+transcriptional states.
+
 The libraries were processed the same as for
 [2021-12-17_Okinawa_Oik](../2021-12-17_Okinawa_Oik/README.md), with the
 following differences.
