@@ -1,6 +1,12 @@
 CAGE libraries from Oikopleura dioica (Kin bay)
 ===============================================
 
+Samples were taked from two different time points: embryonic (EB) or adult (DE).
+Some CAGE libraries are technical replicates of each other (T1/T2) because there
+was enough RNA to make two libraries.  Otherwise are biological replicates of each
+other (EB1/EB2, DE1/DE2).  Biological replicates were loosely staged in order to
+screen a broader set of transcriptional states.
+
 [Splice leader](https://doi.org/10.1128/MCB.24.17.7795-7805.2004)
 sequences (`ACTCATCCCATTTTTGAGTCCGATTTCGATTGTCTAACAG`) were recognised with
 the [TagDust](https://doi.org/10.1186/s12859-015-0454-y) program embedded
