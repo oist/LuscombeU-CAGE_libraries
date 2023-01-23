@@ -4,6 +4,7 @@
 
  - [Okinawan species libraries](2021-12-17_Okinawa_Oik/README.md)
  - [Osaka_lab_strain_libraries](2022-02-09_Osaka_Oik/README.md)
+ - [Barcelona lab strain libraries](2022-11-09_Barcelona_Oik/README.md)
 
 ## Processing in brief
 
