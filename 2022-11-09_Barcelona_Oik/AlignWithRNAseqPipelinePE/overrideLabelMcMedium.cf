@@ -1,0 +1,7 @@
+process {
+  withLabel:'process_medium' {
+      cpus = { 32 }
+      memory = { 128.GB }
+      time = { 24.h }
+  }
+}

@@ -1,0 +1,17 @@
+{
+    "input": "input.csv",
+    "email": "charles.plessy@oist.jp",
+    "fasta": "/bucket/LuscombeU/common/Oikopleura/Genomes/Bar2_p4/Bar2_p4.fa",
+    "gtf": "Bar2_p4.gm.gtf",
+    "hisat2_build_memory": "50.GB",
+    "clip_r2": 9,
+    "three_prime_clip_r2": 30,
+    "aligner": "hisat2",
+    "seq_center": "DNAFORM",
+    "save_unaligned": true,
+    "skip_preseq": true,
+    "skip_dupradar": true,
+    "skip_markduplicates": true,
+    "remove_ribo_rna": true,
+    "ribo_database_manifest": "rrna-db.txt"
+}
