@@ -1,0 +1,10 @@
+sample,fastq_1,fastq_2
+D1D4,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/D1.D4_R1.fastq.gz,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/D1.D4_R2.fastq.gz
+D4D5,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/D4.D5_R1.fastq.gz,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/D4.D5_R2.fastq.gz
+Rep1,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/Replica1_R1.fastq.gz,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/Replica1_R2.fastq.gz
+Rep2,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/Replica2_R1.fastq.gz,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/Replica2_R2.fastq.gz
+Rep3,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/Replica3_R1.fastq.gz,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/Replica3_R2.fastq.gz
+Rep4,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/Replica4_R1.fastq.gz,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/Replica4_R2.fastq.gz
+14FE,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/x14females_R1.fastq.gz,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/x14females_R2.fastq.gz
+29FE,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/x29females_R1.fastq.gz,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/x29females_R2.fastq.gz
+41MA,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/x41males_R1.fastq.gz,/bucket/LuscombeU/archive/Oikopleura/MGI/2022-11-09_Barcelona_Oik_CAGE_From_DNAFORM/x41males_R2.fastq.gz

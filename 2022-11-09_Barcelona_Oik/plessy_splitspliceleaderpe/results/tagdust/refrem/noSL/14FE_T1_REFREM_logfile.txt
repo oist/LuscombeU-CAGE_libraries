@@ -1,0 +1,33 @@
+[2023-01-24 00:06:54]	Tagdust 2.33, Copyright (C) 2013 Timo Lassmann <timolassmann@gmail.com>
+[2023-01-24 00:06:54]	cmd: tagdust -t 12 -ref OP113814.fa -arch SL.arch -o 14FE_T1_REFREM __clean__read1.fq.gz __clean__read2.fq.gz 
+[2023-01-24 00:06:54]	Start Run
+--------------------------------------------------
+[2023-01-24 00:06:54]	Looking at file:__clean__read1.fq.gz
+[2023-01-24 00:06:54]	Searching for best architecture in file 'SL.arch'
+[2023-01-24 00:07:06]	Using: -1 R:N 
+[2023-01-24 00:07:06]	1.00 Confidence.
+[2023-01-24 00:07:06]	Looking at file:__clean__read2.fq.gz
+[2023-01-24 00:07:06]	Searching for best architecture in file 'SL.arch'
+[2023-01-24 00:07:19]	Using: -1 R:N 
+[2023-01-24 00:07:19]	1.00 Confidence.
+[2023-01-24 00:07:25]	Determining threshold for read0.
+[2023-01-24 00:07:38]	Long sequence found. Need to realloc model...
+[2023-01-24 00:07:39]	Selected Threshold:: 3.023334
+[2023-01-24 00:07:40]	Determining threshold for read1.
+[2023-01-24 00:07:54]	Long sequence found. Need to realloc model...
+[2023-01-24 00:07:56]	Selected Threshold:: 3.023334
+[2023-01-24 00:21:55]	Done.
+
+[2023-01-24 00:21:55]	__clean__read1.fq.gz	Input file 0.
+[2023-01-24 00:21:55]	__clean__read2.fq.gz	Input file 1.
+[2023-01-24 00:21:55]	65512615	total input reads
+[2023-01-24 00:21:55]	3.02	selected threshold
+[2023-01-24 00:21:55]	29515604	successfully extracted
+[2023-01-24 00:21:55]	45.1%	extracted
+[2023-01-24 00:21:55]	0	problems with architecture
+[2023-01-24 00:21:55]	0	barcode / UMI not found
+[2023-01-24 00:21:55]	0	too short
+[2023-01-24 00:21:55]	13315	low complexity
+[2023-01-24 00:21:55]	35983696	match artifacts:
+[2023-01-24 00:21:55]	35983696	OP113814.1_Oikopleura_dioica_isolate_Bar2_small_subunit_ribosomal_RNA_gene,_internal_transcribed_spacer_1,_5.8S_ribosomal_RNA_gene,_internal_transcribed_spacer_2,_and_large_subunit_ribosomal_RNA_gene,_complete_sequence
+
