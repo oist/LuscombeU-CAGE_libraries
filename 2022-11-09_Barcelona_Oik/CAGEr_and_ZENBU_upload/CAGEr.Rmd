@@ -1,0 +1,223 @@
+---
+title: "CAGE Oikopleura"
+author: "Charles Plessy"
+date: "01/27/2023"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the CAGE data from BAM files.
+
+BAM files produced by HiSat2 are loaded in paired-end mode.  Sample names are
+parsed from the file names.
+
+```{r}
+library("CAGEr")
+# install.packages("BSgenome.Oidioi.OIST.Bar2.p4", repos="https://oist.github.io/plessy_oikgenomes_drat/")
+library("BSgenome.Oidioi.OIST.Bar2.p4")
+
+pathsToInputFiles <- list.files("hisat2/",
+                                pattern = "*.bam$",
+                                full.names = TRUE)
+sampleLabels <- make.names(sub( ".sorted.bam", "", basename(pathsToInputFiles)))
+ce <-
+  CAGEexp( metadata = list(genomeName = "BSgenome.Oidioi.OIST.Bar2.p4")
+         , colData  = DataFrame( inputFiles     = pathsToInputFiles
+                               , sampleLabels   = sampleLabels
+                               , inputFilesType = "bamPairedEnd"
+                               , row.names      = sampleLabels))
+
+ce <- getCTSS(ce, useMulticore = FALSE, correctSystematicG=FALSE, removeFirstG=FALSE)
+#saveRDS(ce, "ce.rds")
+```
+
+# Polish sample data
+
+Extra information is parsed from the file names, and is used to prepare short
+descriptions in plain English.
+
+```{r}
+librarySizes(ce)
+colData(ce)
+ce$SLfound <- grepl("SL",    sampleLabels(ce))
+ce$sampleType <- "Adult"
+ce$sampleType[grepl("Rep", sampleLabels(ce))] <- "Embry"
+ce$RNA <- sampleLabels(ce) |> sub(pat = "_SL.*|_no.*", rep = "") |> sub(pat = "^X", rep = "") |> unname()
+ce$Description <-
+  paste0("Oikopleura dioica (Barcelona) CAGE library prepared by DNAFORM in 2022—23 from the RNA sample “",
+       ce$RNA, "”. ",
+       ifelse(ce$SLfound, "A splice leader sequence was found and removed. ",
+              "No splice leader sequence was found. "),
+       "The reads where then aligned with HISAT2 using the nf-core RNA-seq pipeline version 3.4.")
+
+colData(ce)
+```
+
+# Annotate
+
+As of today (Jan 2023), the gene models were produced by AUGUSTUS, and begin
+at the translation start site.  The plots below should therefore be interpreted
+with caution.
+
+```{r}
+gff <- rtracklayer::import("../AlignWithRNAseqPipelinePE/Bar2_p4.gm.gtf")
+gff$type <- as.character(gff$type)
+gff <- gff[gff$type %in% c("transcript", "intron", "exon")]
+gff$gene_name <- gff$gene_id
+
+ce <- annotateCTSS(ce, gff)
+colData(ce)[,c("librarySizes", "promoter", "exon", "intron", "unknown")]
+plotAnnot(ce[,   ce$SLfound], "counts", title = "Reads with splice leader")
+plotAnnot(ce[, ! ce$SLfound], "counts", title = "Reads without splice leader")
+```
+
+# Correlate
+
+```{r}
+#Too slow
+# corr.m <- plotCorrelation2( ce, samples = "all"
+#                           , tagCountThreshold = 100, applyThresholdBoth = FALSE
+#                           , method = "pearson")
+```
+
+# Profile
+
+```{r}
+plotReverseCumulatives(ce[,   ce$SLfound], fitInRange = c(3e3, 3e5), onePlot = TRUE, main = "SL found")
+plotReverseCumulatives(ce[, ! ce$SLfound], fitInRange = c(3e3, 3e5), onePlot = TRUE, main = "SL not found")
+```
+
+# Expression per chromosome.
+
+```{r}
+ce <- summariseChrExpr(ce)
+seqNameTotalsSE(ce) |> assay()
+```
+
+# Cluster the CAGE tags
+
+```{r}
+ce <- normalizeTagCount(ce, method = "simpleTpm")
+ce <- clusterCTSS(ce)
+ce <- cumulativeCTSSdistribution(ce)
+ce <- quantilePositions(ce)
+plotInterquantileWidth(ce, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
+```
+
+You can see that the trans-spliced tag clusters are very sharp, as expected.
+
+# Aggregate the CAGE tags
+
+At this point, the trans-spliced tags and the transcription start tags (splice
+leader not found) need to be processed separately.
+
+```{r}
+ce_SL <- ce[,   ce$SLfound] |>
+  aggregateTagClusters() |>
+  cumulativeCTSSdistribution(clusters = "consensusClusters") |>
+  quantilePositions(clusters = "consensusClusters") |>
+  annotateConsensusClusters(gff)
+
+ce_no <- ce[, ! ce$SLfound] |>
+  aggregateTagClusters() |>
+  cumulativeCTSSdistribution(clusters = "consensusClusters") |>
+  quantilePositions(clusters = "consensusClusters") |>
+  annotateConsensusClusters(gff)
+```
+
+The clusters for the trans-spliced reads are short and contain most of the reads.
+
+```{r}
+consensusClustersGR(ce_SL)
+ce_SL$outOfClusters / ce_SL$librarySizes
+# https://github.com/charles-plessy/CAGEr/issues/60
+# plotInterquantileWidth(ce, clusters = "consensusClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
+```
+
+The clusters for transcription start reads are broader and miss ~ 10 % of the data.
+
+```{r}
+consensusClustersGR(ce_no)
+ce_no$outOfClusters / ce_no$librarySizes
+```
+
+# Export the CTSS data
+
+Produce one file per sample, containing the unclustered nucleotide-resolution
+CAGE data in BED format.  These files are lighter than BAM files and can be
+uploaded to ZENBU or re-loaded in _CAGEr_ by collaborators.  What BAM files can
+do but "CTSS" BED can not is to show the area covered by the read pair, as
+well as the mismatches between reads and the genome.
+
+```{r}
+trks <- exportToTrack(ce, oneTrack = FALSE)
+for (n in seq_along(trks)) {
+  name <- sampleLabels(ce)[n]
+  rtracklayer::export.bed(trks[n], paste0(name, ".ctss.bed"))
+}
+```
+
+## Upload to ZENBU
+
+With the custom function below, a ZENBU upload file is created.  It is a
+tab-separated table containing the path to the file, the sample name, the long
+description and a space-separated list of metadata (like in GFF files).
+
+The upload fingerprint is any string that will allow to select at once all
+files uploaded in this round, in order to clean up ZENBU in case they become
+obsolete because of defect or update.
+
+```{r}
+UploadFingerPrint <- "Uploaded on 2023012701."
+
+.ZENBU_filelist <- function(DF, file = NULL, suffix, prefix = NULL) {
+  DF_sub <- DF
+  DF_sub$sampleLabels <- DF_sub$inputFiles <- DF_sub$inputFilesType <- DF_sub$Description <- NULL
+  if(is.null(DF$Description)) DF$Description <- ""
+  out <- data.frame(path = paste(DF$sampleLabels|>unname(), suffix, sep = "."),
+                    name = DF$sampleLabels|>unname(),
+                    desc = paste(DF$Description, UploadFingerPrint))
+  out$meta <- sapply(1:nrow(DF_sub), \(n) {
+    paste(colnames(DF_sub), sapply(DF_sub[n,,drop =TRUE], unname), sep = "=", collapse = ";")
+  })
+  if(is.null(file)) {
+    return(out)
+  } else {
+    write.table(out, file, quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
+  }
+  invisible(out)
+}
+
+.ZENBU_filelist(colData(ce), "ZENBU_upload_CTSS_bed.tsv", suffix = "ctss.bed")
+```
+
+```
+# ml use /apps/unit/LuscombeU/.modulefiles
+# ml ZENBU
+
+# zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -filelist ZENBU_upload_CTSS_bed.tsv -assembly Oidioi_Bar2_p4.Flye -score_exp raw -collab orXQCELWOZfm7KLNMMpPdD
+```
+
+# Export Consensus clusters
+
+```{r}
+cctrack_SL <- exportToTrack(ce_SL, what = "consensusClusters")
+cctrack_no <- exportToTrack(ce_no, what = "consensusClusters")
+
+rtracklayer::export.bed(cctrack_SL, "clusters_SL.bed")
+rtracklayer::export.bed(cctrack_no, "clusters_no.bed")
+```
+
+```
+zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -file clusters_SL.bed -name ConsensusClustersSL -desc 'Consensus Clusters for trans-splicing CAGE data. Uploaded on 2023012701.' -assembly Oidioi_Bar2_p4.Flye -collab orXQCELWOZfm7KLNMMpPdD
+zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -file clusters_no.bed -name ConsensusClustersNoSL -desc 'Consensus Clusters for transription start CAGE data. Uploaded on 2023012701.' -assembly Oidioi_Bar2_p4.Flye -collab orXQCELWOZfm7KLNMMpPdD
+```
+
+```{r sessionInfo}
+sessionInfo()
+```
