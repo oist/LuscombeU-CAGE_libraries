@@ -1,0 +1,210 @@
+---
+title: "CAGE Oikopleura"
+author: "Charles Plessy"
+date: "01/11/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load the CAGE data from BAM files.
+
+```{r}
+library("CAGEr")
+# install.packages("BSgenome.Odioica.local.OKI2018.I69", repos="https://oist.github.io/plessy_oikgenomes_drat/")
+library("BSgenome.Odioica.local.OKI2018.I69")
+
+pathsToInputFiles <- list.files("hisat2/",
+                                pattern = "*.bam$",
+                                full.names = TRUE)
+sampleLabels <- sub( ".markdup.sorted.bam", "", basename(pathsToInputFiles))
+ce <-
+  CAGEexp( metadata = list(genomeName = "BSgenome.Odioica.local.OKI2018.I69")
+         , colData  = DataFrame( inputFiles     = pathsToInputFiles
+                               , sampleLabels   = sampleLabels
+                               , inputFilesType = "bam"
+                               , row.names      = sampleLabels))
+
+ce <- getCTSS(ce, useMulticore = FALSE, correctSystematicG=FALSE, removeFirstG=FALSE)
+#saveRDS(ce, "ce.rds")
+```
+
+Polish sample data
+
+```{r}
+librarySizes(ce)
+colData(ce)
+ce$linkerType[grepl("GACTCA", sampleLabels(ce))] <- "GACTCA"
+ce$linkerType[grepl("GN5",    sampleLabels(ce))] <- "GN5"
+ce$SLfound <- grepl("SL_yes",    sampleLabels(ce))
+ce$sampleType[grepl("EB", sampleLabels(ce))] <- "EB"
+ce$sampleType[grepl("DE", sampleLabels(ce))] <- "DE"
+ce$RNA <- sampleLabels(ce) |> sub(pat = ".GAC.*|.GN5.*", rep = "") |> unname()
+ce$Description <-
+  paste0("Oikopleura dioica pilot CAGE (deleteme2) library prepared by DNAFORM from the RNA sample ",
+       ce$RNA, " using a ", ce$linkerType, " linker. ",
+       ifelse(ce$SLfound, "A splice leader sequence was found and removed. ",
+              "No splice leader sequence was found. "),
+       "The reads where then aligned with HISAT2 using the nf-core RNA-seq pipeline version 3.4.")
+
+colData(ce)
+```
+
+Annotate
+
+```{r}
+gff <- rtracklayer::import("Fastq/OKI2018_I69.v2.gm.gff")
+gff$type <- as.character(gff$type)
+gff$type[gff$type == "CDS"] <- "exon"
+gff <- gff[gff$type %in% c("transcript", "intron", "exon")]
+gff$gene_name[  gff$type %in% "transcript"] <- gff$ID    [  gff$type %in% "transcript"]
+gff$gene_name[! gff$type %in% "transcript"] <- gff$Parent[! gff$type %in% "transcript"]
+
+ce <- annotateCTSS(ce, gff)
+colData(ce)[,c("librarySizes", "promoter", "exon", "intron", "unknown")]
+plotAnnot(ce, "counts")
+```
+
+Correlate
+
+```{r}
+#Too slow
+# corr.m <- plotCorrelation2( ce, samples = "all"
+#                           , tagCountThreshold = 100, applyThresholdBoth = FALSE
+#                           , method = "pearson")
+```
+
+Profile
+
+```{r}
+plotReverseCumulatives(ce[,ce$SLfound == TRUE ], fitInRange = c(3e3, 3e5), onePlot = TRUE, main = "SL found")
+plotReverseCumulatives(ce[,ce$SLfound == FALSE], fitInRange = c(3e3, 3e5), onePlot = TRUE, main = "SL not found")
+
+ce <- summariseChrExpr(ce)
+seqNameTotalsSE(ce)|>assay()
+```
+
+Cluster
+
+```{r}
+ce <- normalizeTagCount(ce, method = "simpleTpm")
+ce <- clusterCTSS(ce)
+ce <- cumulativeCTSSdistribution(ce)
+ce <- quantilePositions(ce)
+plotInterquantileWidth(ce, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
+ce <- aggregateTagClusters(ce)
+ce <- annotateConsensusClusters(ce, gff)
+consensusClustersGR(ce)
+ce$outOfClusters / ce$librarySizes
+```
+
+Export CTSS
+
+```{r}
+trks <- ce |> CTSStagCountGR("all") |> exportToTrack(ce, oneTrack = FALSE)
+for (n in seq_along(trks)) {
+  name <- sampleLabels(ce)[n]
+  rtracklayer::export.bed(trks[n], paste0(name, ".ctss.bed"))
+}
+
+.ZENBU_filelist <- function(DF, file = NULL, suffix, prefix = NULL) {
+  DF_sub <- DF
+  DF_sub$sampleLabels <- DF_sub$inputFiles <- DF_sub$inputFilesType <- DF_sub$Description <- NULL
+  if(is.null(DF$Description)) DF$Description <- ""
+  out <- data.frame(path = paste(DF$sampleLabels|>unname(), suffix, sep = "."),
+                    name = DF$sampleLabels|>unname(),
+                    desc = DF$Description)
+  out$meta <- sapply(1:nrow(DF_sub), \(n) {
+    paste(colnames(DF_sub), sapply(DF_sub[n,,drop =TRUE], unname), sep = "=", collapse = ";")
+  })
+  if(is.null(file)) {
+    return(out)
+  } else {
+    write.table(out, file, quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
+  }
+  invisible(out)
+}
+
+.ZENBU_filelist(colData(ce), "ZENBU_upload_bed.tsv", suffix = "ctss.bed")
+
+# zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -filelist ZENBU_upload_bed.tsv -assembly OKI2018_I69_1.0 -score_exp raw -collab orXQCELWOZfm7KLNMMpPdD
+```
+
+Export TCs
+
+```{r}
+iqtrack <- exportToTrack(ce, what = "tagClusters", qLow = 0.1, qUp = 0.9, oneTrack = FALSE)
+iqtrack
+
+rtracklayer::export.bed(iqtrack, "clusters.bed")
+for (name in names(iqtrack)) {
+  rtracklayer::export.bed(iqtrack[name], paste0(name, ".iq.bed"))
+}
+
+DF.iq <- colData(ce)
+DF.iq$Description <-
+  paste0("Oikopleura dioica pilot CAGE (deleteme2) library prepared by DNAFORM from the RNA sample ",
+       ce$RNA, " using a ", ce$linkerType, " linker. ",
+       ifelse(ce$SLfound, "A splice leader sequence was found and removed. ",
+              "No splice leader sequence was found. "),
+       "The reads where then aligned with HISAT2 using the nf-core RNA-seq pipeline version 3.4. ",
+       "TagClusters computed with CAGEr v2.0.1.")
+
+.ZENBU_filelist(DF.iq, "ZENBU_upload_iq_bed.tsv", suffix = "iq.bed")
+```
+
+Problems
+
+```
+# zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -collab orXQCELWOZfm7KLNMMpPdD -filelist ZENBU_upload_iq_bed.tsv -assembly OKI2018_I69_1.0
+
+#UPLOAD ERROR: datafile indexing error, unable to parse line 9 --[9 chrUn_2 14092 14093 . 0 + 14092 14093 0 3 1,1,1 0,1,0 ] - convert_bed_block_extensions ERROR starts not in order 0 < previous 1 internal error in datafile, unable to parse/index convert_bed_block_extensions ERROR starts not in order 0 < previous 1 -
+```
+
+Export Consensus Clusters
+
+```{r}
+#cctrack <- exportToTrack(ce, what = "consensusClusters", qLow = 0.1, qUp = 0.9, oneTrack = FALSE)
+```
+
+Study SL vs no SL
+
+```{r}
+library("DESeq2")
+
+ddsSL <- consensusClustersDESeq2(ce, ~SLfound + linkerType + sampleType)
+ddsSL <- DESeq(ddsSL)
+resSL <- lfcShrink(ddsSL, coef="SLfoundTRUE")
+plotMA(resSL)
+resSL[order(resSL$pvalue),]
+resSL[order(resSL$log2FoldChange, resSL$pvalue),]
+# What are the clusters with no difference?
+resSL[order(abs(resSL$log2FoldChange), resSL$pvalue),]
+```
+
+Study SL GACTCA vs SL GN5
+
+```{r}
+ddsLinkerSL <- consensusClustersDESeq2(ce[,ce$SLfound], ~linkerType + sampleType)
+ddsLinkerSL <- DESeq(ddsLinkerSL[ddsLinkerSL |> assay() |> rowSums() != 0,])
+resLinkerSL <- lfcShrink(ddsLinkerSL, coef="linkerType_GN5_vs_GACTCA")
+plotMA(resLinkerSL)
+resLinkerSL[order(resLinkerSL$pvalue),]
+resLinkerSL[order(resLinkerSL$log2FoldChange, resLinkerSL$pvalue),]
+
+ddsStage <- consensusClustersDESeq2(ce, ~ sampleType)
+ddsStage[,colData(ddsStage)$linkerType == "GACTCA"]
+ddsStage <- DESeq(ddsStage)
+resStage <- lfcShrink(ddsStage, coef="sampleType_EB_vs_DE")
+plotMA(resStage)
+resStage[order(resStage$pvalue),]
+resStage[order(resStage$log2FoldChange, resStage$pvalue),]
+```
+
+```{r sessionInfo}
+sessionInfo()
+```
