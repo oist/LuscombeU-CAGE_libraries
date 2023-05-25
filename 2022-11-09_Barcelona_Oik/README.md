@@ -3,7 +3,22 @@ CAGE libraries from Oikopleura dioica (Barcelona lab strain)
 
 ## Sample preparation
 
-Samples were taked from TO BE COMPLETED
+Samples were prepared in Barcelona by the Cañestro laboratory.
+
+ - `29FE`: 29 females, 205.2 ng/µL × 14 µL = 2872.8 ng = 2.87 µg 
+ - `14FE`: 14 females, 164.1 ng/µL × 14 µL = 2297.4 ng = 2.3 µg
+ - `41MA`: 41 males, 472.3 ng/µL × 14 µL = 6612.2 ng = 6.61 µg
+ - `D1D4`: D1–D4 adults (no swollen gonad), 431.1 ng/µL × 14 µL = 6035.4 ng = 6.04 µg
+ - `D4D5`: D4–D5 adults (maturing gonads), 572 ng/µL × 14 = 7.8 µg
+ - `Rep1`: embryos replica 1, 380.7 ng/µL × 14 µL= 5.33 µg 
+ - `Rep2`: embryos replica 2, 304.2 ng/µL × 13 µL = 3.95 µg
+ - `Rep3`: embryos replica 3: 266.6 ng/µL × 14 µL = 3.73 µg
+ - `Rep4`: embryos replica 4: 414.6 ng/µL × 14 µL = 5.8 µg
+
+Sample names do not sort well (sorry) and were chosen so that
+they all fit in 4 characters.  Unfortunately, in parts of the
+analysis, sample names are prefixed by `X` if they started by
+a number…
 
 The libraries were processed the same as for
 [2021-12-17_Okinawa_Oik](../2021-12-17_Okinawa_Oik/README.md), with the

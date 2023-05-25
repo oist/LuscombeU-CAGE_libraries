@@ -33,7 +33,6 @@ ce <-
                                , row.names      = sampleLabels))
 
 ce <- getCTSS(ce, useMulticore = FALSE, correctSystematicG=FALSE, removeFirstG=FALSE)
-#saveRDS(ce, "ce.rds")
 ```
 
 # Polish sample data
@@ -217,6 +216,16 @@ rtracklayer::export.bed(cctrack_no, "clusters_no.bed")
 zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -file clusters_SL.bed -name ConsensusClustersSL -desc 'Consensus Clusters for trans-splicing CAGE data. Uploaded on 2023012701.' -assembly Oidioi_Bar2_p4.Flye -collab orXQCELWOZfm7KLNMMpPdD
 zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -file clusters_no.bed -name ConsensusClustersNoSL -desc 'Consensus Clusters for transription start CAGE data. Uploaded on 2023012701.' -assembly Oidioi_Bar2_p4.Flye -collab orXQCELWOZfm7KLNMMpPdD
 ```
+
+# Export the _CAGEexp_ object.
+
+```{r}
+saveRDS(ce,       "ce.rds")
+saveRDS(ce_SL, "ce_SL.rds")
+saveRDS(ce_no, "ce_no.rds")
+```
+
+# Session information
 
 ```{r sessionInfo}
 sessionInfo()
