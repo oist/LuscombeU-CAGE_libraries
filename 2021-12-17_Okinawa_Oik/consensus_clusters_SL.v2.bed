@@ -1,4 +1,4 @@
-track name=TC description="CAGE Tag Clusters (TC)" visibility=full
+track name=SL description="CAGE Consensus Clusters for trans-splicing sites" visibility=full
 PAR	10001415	10001423	.	0	-	10001415	10001416	0	2	2,1	0,7
 PAR	10007996	10008000	.	0	+	10007996	10007997	0	2	1,1	0,3
 PAR	10010879	10010887	.	0	+	10010886	10010887	0	2	2,1	0,7

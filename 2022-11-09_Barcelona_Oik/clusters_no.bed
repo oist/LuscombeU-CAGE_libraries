@@ -1,4 +1,4 @@
-track name=TC description="CAGE Tag Clusters (TC)" visibility=full
+track name='No SL' description="CAGE Consensus Clusters for trancription start sites" visibility=full
 Chr1	10014193	10014246	.	0	+	10014202	10014203	0	3	1,1,1	0,2,52
 Chr1	10030848	10030859	.	0	-	10030858	10030859	0	3	1,2,1	0,1,10
 Chr1	10037175	10037290	.	0	+	10037175	10037176	0	2	10,1	0,114
