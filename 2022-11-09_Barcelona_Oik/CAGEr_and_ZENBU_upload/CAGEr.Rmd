@@ -205,8 +205,17 @@ UploadFingerPrint <- "Uploaded on 2023012701."
 # Export Consensus clusters
 
 ```{r}
-cctrack_SL <- exportToTrack(ce_SL, what = "consensusClusters")
-cctrack_no <- exportToTrack(ce_no, what = "consensusClusters")
+CC_to_track <- function(ce) {
+  # Waiting for a fix to https://github.com/charles-plessy/CAGEr/issues/70
+  trk <- consensusClustersGR(ce, qLow = .1, qUp = .9, returnInterquantileWidth = TRUE)
+  trk$thick <- ranges(trk$dominant_ctss)
+  trk <- exportToTrack(trk, qLow = .1, qUp = .9)
+  names(trk) <- NULL
+  trk
+}
+
+cctrack_SL <- CC_to_track(ce_SL)
+cctrack_no <- CC_to_track(ce_no)
 
 rtracklayer::export.bed(cctrack_SL, "clusters_SL.bed")
 rtracklayer::export.bed(cctrack_no, "clusters_no.bed")
