@@ -1,0 +1,36 @@
+Bootstrap: docker
+From: debian:sid
+
+%post
+    apt update
+    apt upgrade -y
+    apt install -y whiptail # Suppress some error messages
+    apt install -y locales
+    sed -i /etc/locale.gen -e "/en_US.UTF-8/s/# //"
+    locale-gen
+    apt install -y r-base
+    apt install -y r-base-dev libssl-dev libclang-dev
+    apt install -y pandoc qpdf texlive r-cran-rmarkdown # For vignette builds and package checks
+    apt install -y r-cran-tidyverse r-cran-devtools r-cran-remotes
+    apt install -y libxml2-dev libcurl4-openssl-dev libssl-dev libfftw3-dev libtiff-dev libgsl-dev # For package builds
+    apt install -y libfontconfig1-dev libharfbuzz-dev libfribidi-dev # For pkgdown
+    apt install -y git bash-completion file sudo wget htop strace # For command-line use
+    apt install -y git x11-apps # For xeyes
+    apt install -y psmisc sudo lsb-release libgl1 libnss3 libasound2 libxdamage1 # For RStudio
+
+    # Install RStudio desktop and server
+    wget https://download1.rstudio.org/electron/jammy/amd64/rstudio-2022.12.0-353-amd64.deb
+    apt --fix-broken -y install ./rstudio-2022.12.0-353-amd64.deb
+    wget https://download2.rstudio.org/server/jammy/amd64/rstudio-server-2022.12.0-353-amd64.deb
+    # As of today rstudio-server needs `ps` and `systemctl` in its postinst file.
+    apt install -y procps systemctl
+    apt --fix-broken -y install ./rstudio-server-2022.12.0-353-amd64.deb
+    rm rstudio-*-amd64.deb
+
+    # Install CAGEr
+    R -e 'install.packages("BiocManager")'
+    R -e 'BiocManager::install("BiocStyle")'  # To rebuild vignettes
+    R -e 'BiocManager::install("CAGEr", dependencies = TRUE)'
+
+    # Use home directory outside image to install more packages
+    printf 'R_LIBS=~/R/library/CAGEr_2.4.0_singularity\n' | tee -a /etc/R/Renviron.site >/dev/null
