@@ -57,7 +57,9 @@ resolution feature, but processing the data through the same
 clustering algorithm removes noise caused by sequencing errors
 
 Alignments in BAM format are clustered with the Bioconductor package
-[CAGEr](https://bioconductor.org/packages/CAGEr).
+[CAGEr](https://bioconductor.org/packages/CAGEr).  The [Bioinfo user
+group's RStudio container](https://github.com/oist/BioinfoUgrp/tree/master/RStudio)
+provides all the C libraries needed to compile the dependencies of CAGEr.
 
 ### Visualisation
 
