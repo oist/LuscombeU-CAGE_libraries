@@ -158,7 +158,6 @@ Distributions of expression values differ strongly between the trans-splicing
 sites and the transcription start sites.  We will need to normalise them
 separately.
 
-
 ```{r}
 ce <- setColors(ce, c("red", "red", "red", "red",
                       "blue", "blue",
@@ -168,127 +167,6 @@ rangeForSL <- c(1e1, 5e2)
 plotReverseCumulatives(ce[,   ce$SLfound], fitInRange = rangeForSL, values = "raw", onePlot = TRUE, main = "SL found")
 rangeForTSS <- c(3e1, 3e4)
 plotReverseCumulatives(ce[, ! ce$SLfound], fitInRange = rangeForTSS, values = "raw", onePlot = TRUE, main = "SL not found")
-```
-
-# Split the objects and normalise
-
-## TPM for the trans-splicing sites
-
-The expression values SL peaks do not follow a power law distribution.
-
-```{r}
-ce_SL <- ce[,   ce$SLfound] |>
-  resetCAGEexp() |>
-  normalizeTagCount(method = "simpleTpm")
-plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL found")
-```
-
-The male library has a different distribution of CTSS expression values compared
-with others.
-
-## Power law for the transcription start sites.
-
-```{r}
-ce_no <- ce[, ! ce$SLfound] |> resetCAGEexp()
-rangeForTSS <- c(3e1, 3e4)
-plotReverseCumulatives(ce_no, fitInRange = rangeForTSS, values = "raw", onePlot = TRUE, main = "SL not found (raw)")
-ce_no |> normalizeTagCount(method = "simpleTpm", fitInRange = rangeForTSS) |>
-  plotReverseCumulatives(ce_no.tpm, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL not found (TPM normalisation)")
-ce_no <- ce_no |> normalizeTagCount(method = "powerLaw", fitInRange = rangeForTSS)
-plotReverseCumulatives(ce_no, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL not found (power law normalisation")
-```
-
-The power law normalisation is more efficient at giving the same distribution
-to the libraries, at least on average expression values.  Again, the male
-library makes an exception.
-
-# Clustering
-
-## Produce sharp clusters of trans-splicing sites
-
-Try different parameters
-
-```{r try_paraclu}
-p10.0 <- ce_SL |> CTSSnormalizedTpmGR(1)|> head(10000) |> paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 0)
-hist(decode(score(p10.0))|>log10())
-# The distribution of scores is bimodal, with a valley around 1.
-ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
-ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 20L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
-ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 50L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
-ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 200L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
-ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 500L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
-# There is not much penalty keeping the peaks narrow.
-```
-
-## Produce sharp clusters of trans-splicing sites
-
-```{r ce_SL_paraclu}
-ce_SL <- ce_SL |> clusterCTSS( method = "paraclu"
-                             , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
-                             , threshold = 1   # See above.  Note that it allows low-score CTSS supported in other samples.
-                             , maxLength = 10L # Keep them sharp
-                             , useMulticore = TRUE # Deigo
-                             , nrCores = 8)    |>    # Yay !
-                  cumulativeCTSSdistribution() |>
-                  quantilePositions()
-plotInterquantileWidth(ce_SL, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
-tagClustersGR(ce_SL) |> sapply(length)
-tagClustersGR(ce_SL, 1) |> score() |> decode() |> log10() |> hist(br=100)
-tagClustersGR(ce_SL, "X41MA_SL") |> score() |> decode() |> log10() |> hist(br=100) # Males !
-
-(tagClustersGR(ce_SL, 1) |> score() > 1) |> sum()
-```
-
-## Cluster clusters of transcription start sites.
-
-  
-```{r ce_no_paraclu}
-ce_no <- ce_no |> clusterCTSS( method = "distclu"  # Not enough memory for paraclu?  Mabye because running in parallel?
-                             , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
-                             , threshold = 1   # Default
-                            # , maxLength = 200 # Not the default
-                             , useMulticore = TRUE # Deigo
-                             , nrCores = 8)    |>    # Yay !
-                  cumulativeCTSSdistribution() |>
-                  quantilePositions()
-plotInterquantileWidth(ce_no, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
-```
-
-# Aggregate the CAGE tags
-
-
-```{r}
-ce_SL <- ce_SL |> 
-  aggregateTagClusters(maxDist = 10L, tpmThreshold = 1) |>  # See the score distribution
-  cumulativeCTSSdistribution(clusters = "consensusClusters") |>
-  quantilePositions(clusters = "consensusClusters") |>
-  annotateConsensusClusters(gff)
-
-# Consider removeSingletons = T, keepSingletonsAbove = ??
-ce_no <- ce[, ! ce$SLfound] |>
-  aggregateTagClusters() |>
-  cumulativeCTSSdistribution(clusters = "consensusClusters") |>
-  quantilePositions(clusters = "consensusClusters") |>
-  annotateConsensusClusters(gff)
-```
-
-The clusters for the trans-spliced reads are short and contain most of the reads.
-
-```{r}
-x <- consensusClustersGR(ce_SL)
-(100 - ce_SL$outOfClusters / ce_SL$librarySizes) |> round(3)
-# Again, the distribution of scores is bimodal, but this time it is because of males
-hist(log10(decode(score(x))), br = 100)
-consensusClustersGR(ce_SL, 1) |> score() |> decode() |> log10() |> hist(100)
-consensusClustersGR(ce_SL, 3) |> score() |> decode() |> log10() |> hist(100)
-plotInterquantileWidth(ce_SL, clusters = "consensusClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
-```
-
-The clusters for transcription start reads are broader and miss ~ 10 % of the data.
-
-```{r}
-consensusClustersGR(ce_no)
-ce_no$outOfClusters / ce_no$librarySizes
 ```
 
 # Export the CTSS data
@@ -363,6 +241,135 @@ UploadFingerPrint <- "Uploaded on 2023070501."
 # zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -filelist ZENBU_upload_CTSS_bed.tsv -assembly Oidioi_Bar2_p4.Flye -score_exp raw -collab orXQCELWOZfm7KLNMMpPdD
 ```
 
+
+# Split the objects and normalise
+
+## TPM for the trans-splicing sites
+
+The expression values SL peaks do not follow a power law distribution.
+
+```{r}
+ce_SL <- ce[,   ce$SLfound] |>
+  resetCAGEexp() |>
+  normalizeTagCount(method = "simpleTpm")
+plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL found")
+```
+
+The male library has a different distribution of CTSS expression values compared
+with others.
+
+## Power law for the transcription start sites.
+
+```{r}
+ce_no <- ce[, ! ce$SLfound] |> resetCAGEexp()
+rangeForTSS <- c(3e1, 3e4)
+plotReverseCumulatives(ce_no, fitInRange = rangeForTSS, values = "raw", onePlot = TRUE, main = "SL not found (raw)")
+ce_no |> normalizeTagCount(method = "simpleTpm", fitInRange = rangeForTSS) |>
+  plotReverseCumulatives(ce_no.tpm, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL not found (TPM normalisation)")
+ce_no <- ce_no |> normalizeTagCount(method = "powerLaw", fitInRange = rangeForTSS)
+plotReverseCumulatives(ce_no, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL not found (power law normalisation")
+```
+
+The power law normalisation is more efficient at giving the same distribution
+to the libraries, at least on average expression values.  Again, the male
+library makes an exception.
+
+# Clustering
+
+## Produce sharp clusters of trans-splicing sites
+
+Try different parameters
+
+```{r try_paraclu}
+p10.0 <- ce_SL |> CTSSnormalizedTpmGR(1)|> head(10000) |> paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 0)
+hist(decode(score(p10.0))|>log10())
+# The distribution of scores is bimodal, with a valley around 1.
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 20L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 50L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 200L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 500L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
+# There is not much penalty keeping the peaks narrow.
+```
+
+## Produce sharp clusters of trans-splicing sites
+
+```{r ce_SL_paraclu}
+ce_SL <- ce_SL |> clusterCTSS( method = "paraclu"
+                             , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
+                             , threshold = 1   # See above.  Note that it allows low-score CTSS supported in other samples.
+                             , maxLength = 10L # Keep them sharp
+                             , useMulticore = TRUE # Deigo
+                             , nrCores = 8)    |>    # Yay !
+                  cumulativeCTSSdistribution() |>
+                  quantilePositions()
+plotInterquantileWidth(ce_SL, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
+tagClustersGR(ce_SL) |> sapply(length)
+tagClustersGR(ce_SL, 8) |> score() |> decode() |> log10() |> hist(br=100)
+# Not super useful plot: most SL TCs are CTSSes anyway.
+tagClustersGR(ce_SL, 1) |> score() |> decode() |> CAGEr:::.plotReverseCumulative(title=n)
+for (n in 2:8) {
+tagClustersGR(ce_SL, n) |> score() |> decode() |> CAGEr:::.plotReverseCumulative(title=n, add = TRUE)
+}
+
+tagClustersGR(ce_SL, "X41MA_SL") |> score() |> decode() |> log10() |> hist(br=100) # Males !
+
+(tagClustersGR(ce_SL, 1) |> score() > 1) |> sum()
+```
+
+## Cluster clusters of transcription start sites.
+  
+```{r ce_no_paraclu}
+ce_no <- ce_no |> clusterCTSS( method = "distclu"  # Not enough memory for paraclu?  Mabye because running in parallel?
+                             , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
+                             , threshold = 1   # Default
+                            # , maxLength = 200 # Not the default
+                             , useMulticore = TRUE # Deigo
+                             , nrCores = 8)    |>    # Yay !
+                  cumulativeCTSSdistribution() |>
+                  quantilePositions()
+plotInterquantileWidth(ce_no, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
+```
+
+# Aggregate the CAGE tags
+
+```{r}
+# First I ran with a threshold of 1, but it captured a lot of ectopic trans-splicing
+# at splice junctions, which we do not want to use for updating annotation and
+# defining operons.
+ce_SL <- ce_SL |> 
+  aggregateTagClusters(maxDist = 10L, tpmThreshold = 20) |>  # See also the score distribution
+  cumulativeCTSSdistribution(clusters = "consensusClusters") |>
+  quantilePositions(clusters = "consensusClusters") |>
+  annotateConsensusClusters(gff)
+
+# Consider removeSingletons = T, keepSingletonsAbove = ??
+ce_no <- ce_no |>
+  aggregateTagClusters() |>
+  cumulativeCTSSdistribution(clusters = "consensusClusters") |>
+  quantilePositions(clusters = "consensusClusters") |>
+  annotateConsensusClusters(gff)
+```
+
+The clusters for the trans-spliced reads are short and contain most of the reads.
+
+```{r}
+x <- consensusClustersGR(ce_SL)
+(100 - ce_SL$outOfClusters / ce_SL$librarySizes) |> round(3)
+# Again, the distribution of scores is bimodal
+hist(log10(decode(score(x))), br = 100)
+consensusClustersGR(ce_SL, 1) |> score() |> decode() |> log10() |> hist(100)
+consensusClustersGR(ce_SL, 3) |> score() |> decode() |> log10() |> hist(100)
+plotInterquantileWidth(ce_SL, clusters = "consensusClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
+```
+
+The clusters for transcription start reads are broader and miss ~ 10 % of the data.
+
+```{r}
+consensusClustersGR(ce_no)
+ce_no$outOfClusters / ce_no$librarySizes
+```
+
 # Export Consensus clusters
 
 ```{r}
@@ -374,7 +381,6 @@ cctrack_SL$itemRgb <- ifelse(flagByUpstreamSequences(rowRanges(consensusClusters
 
 cctrack_SL[cctrack_SL$itemRgb == "black"] |> score() |> decode() |> log10() |> hist(br=100)
 cctrack_SL[cctrack_SL$itemRgb == "grey"]  |> score() |> decode() |> log10() |> hist(br=100)
-
 
 cctrack_no <- CC_to_track(ce_no)
 
@@ -393,6 +399,160 @@ zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -file clusters_no.bed -name
 saveRDS(ce,       "ce.rds")
 saveRDS(ce_SL, "ce_SL.rds")
 saveRDS(ce_no, "ce_no.rds")
+```
+
+# AG motifs
+
+```{r AG_motifs}
+
+TSSlogo(cctrack_SL[cctrack_SL$itemRgb == "black"], 40, 20)
+TSSlogo(cctrack_SL[cctrack_SL$itemRgb == "black"], 16, 16) # Very similar to Danks 2015 !!
+TSSlogo(cctrack_SL[cctrack_SL$itemRgb == "grey"], 40, 20)
+TSSlogo(cctrack_SL[cctrack_SL$itemRgb == "grey"], 16, 16)
+
+seqLogo_GR(cctrack_no, 35, 15)
+
+cctrack_SL$dominant_ctss |> promoters(2,0) |> getSeq (x = BSgenome::getBSgenome('Bar2.p4')) |> table() |> prop.table() |> tibble::as_tibble() |> ggplot() + aes(y = upstreamSeq, x = n) + geom_point() + scale_x_continuous("frequency", labels = scales::label_percent())
+```
+
+# Sharp and broad promoters
+
+```{r}
+hist(cctrack_no$tpm.dominant_ctss |> decode() / score(cctrack_no) |> decode())
+cctrack_no[cctrack_no$tpm.dominant_ctss |> decode() / score(cctrack_no) |> decode() > 0.5] |> seqLogo_GR(40,10)
+cctrack_no[cctrack_no$tpm.dominant_ctss |> decode() / score(cctrack_no) |> decode() < 0.5] |> seqLogo_GR(40,10)
+```
+
+# Enhancers
+
+```{r enhancers}
+ce_no <- ce_no |> quickEnhancers()
+enh_trk <- ce_no[["enhancers"]] |> rowRanges() |> exportToTrack()
+rtracklayer::export.bed(enh_trk, "enhancers.bed")
+enh_trk |> seqLogo_GR()
+enh_trk |> plyranges::mutate(dominant_ctss = GRanges(seqnames, thick, seqinfo = seqinfo(enh_trk))) |> seqLogo_GR(50,50)
+rtracklayer::export.bed(enh_trk, "enhancers.bed")
+```
+
+# seqArchR
+
+```{r seqArchR_SL}
+# Load seqArchR
+library(seqArchR)
+library(Biostrings) |> suppressPackageStartupMessages()
+set.seed(1234)
+inputSeqsRaw <- cctrack_SL$dominant_ctss |> promoters(40,40) |> trim() |> getSeq (x = BSgenome::getBSgenome('Bar2.p4')) |> suppressWarnings()
+inputSeqsRaw <- inputSeqsRaw[width(inputSeqsRaw) == 80] # remove trimmed sequences
+inputSeqsMat <- seqArchR::get_one_hot_encoded_seqs(seqs = inputSeqsRaw, sinuc_or_dinuc = "dinuc")
+
+nSeqs <- length(inputSeqsRaw)
+positions <- seq(1, Biostrings::width(inputSeqsRaw[1]))
+
+seqArchR::viz_seqs_acgt_mat(as.character(inputSeqsRaw),  pos_lab = positions - 40)
+
+seqArchRconfig <- seqArchR::set_config(
+        parallelize = TRUE,
+        n_cores = 4,
+        n_runs = 100,
+        k_min = 1,
+        k_max = 20,
+        mod_sel_type = "stability",
+        bound = 10^-6,
+        chunk_size = 100,
+        result_aggl = "ward.D", 
+        result_dist = "euclid",
+        flags = list(debug = FALSE, time = TRUE, verbose = TRUE,
+                     plot = FALSE)
+)
+
+seqArchRresult <- seqArchR::seqArchR(config = seqArchRconfig,
+                            seqs_ohe_mat = inputSeqsMat,
+                            seqs_raw = inputSeqsRaw,
+                            seqs_pos = positions,
+                            total_itr = 2,
+                            set_ocollation = c(TRUE, FALSE))
+
+seqArchR::viz_bas_vec(feat_mat = get_clBasVec_m(seqArchRresult, 1), 
+                      ptype = c("heatmap", "seqlogo"), method = "bits", 
+                      sinuc_or_dinuc = "dinuc")
+
+seqArchR::viz_bas_vec(feat_mat = get_clBasVec_m(seqArchRresult, 2), 
+                      ptype = c("heatmap", "seqlogo"), method = "bits", 
+                      sinuc_or_dinuc = "dinuc")
+
+
+seqArchR::viz_seqs_acgt_mat(seqs_str(seqArchRresult, iter = 1, ord = TRUE),
+                                  pos_lab = positions)
+
+
+seqArchR::viz_seqs_acgt_mat(seqs_str(seqArchRresult, iter = 2, ord = TRUE),
+                                  pos_lab = positions)
+```
+
+
+```{r seqArchR_TSS}
+# Load seqArchR
+library(seqArchR)
+library(Biostrings) |> suppressPackageStartupMessages()
+set.seed(1234)
+inputSeqsRaw <- cctrack_no$dominant_ctss |> promoters(40,20) |> trim() |> getSeq (x = BSgenome::getBSgenome('Bar2.p4')) |> suppressWarnings()
+inputSeqsRaw <- inputSeqsRaw[width(inputSeqsRaw) == 60] # remove trimmed sequences
+inputSeqsMat <- seqArchR::get_one_hot_encoded_seqs(seqs = inputSeqsRaw, sinuc_or_dinuc = "dinuc")
+
+nSeqs <- length(inputSeqsRaw)
+positions <- seq(1, Biostrings::width(inputSeqsRaw[1]))
+
+seqArchR::viz_seqs_acgt_mat(as.character(inputSeqsRaw),  pos_lab = positions - 100)
+
+seqArchRconfig <- seqArchR::set_config(
+        parallelize = TRUE,
+        n_cores = 2,
+        n_runs = 100,
+        k_min = 1,
+        k_max = 50,
+        mod_sel_type = "stability",
+        bound = 10^-6,
+        chunk_size = 1000,
+        result_aggl = "ward.D", 
+        result_dist = "euclid",
+        flags = list(debug = FALSE, time = TRUE, verbose = TRUE,
+                     plot = FALSE)
+)
+
+seqArchRresult <- seqArchR::seqArchR(config = seqArchRconfig,
+                            seqs_ohe_mat = inputSeqsMat,
+                            seqs_raw = inputSeqsRaw,
+                            seqs_pos = positions,
+                            total_itr = 5,
+                            set_ocollation = c(TRUE, TRUE, TRUE, TRUE, TRUE))
+
+  seqArchR::viz_bas_vec(feat_mat = get_clBasVec_m(seqArchRresult, 1), 
+                      ptype = c("heatmap", "seqlogo"), method = "bits", 
+                      sinuc_or_dinuc = "dinuc")
+
+seqArchR::viz_bas_vec(feat_mat = get_clBasVec_m(seqArchRresult, 2), 
+                      ptype = "seqlogo", method = "bits", 
+                      sinuc_or_dinuc = "dinuc")
+
+
+seqArchR::viz_seqs_acgt_mat(seqs_str(seqArchRresult, iter = 1, ord = TRUE),
+                                  pos_lab = positions)
+
+
+seqArchR::viz_seqs_acgt_mat(seqs_str(seqArchRresult, iter = 3, ord = TRUE),
+                                  pos_lab = positions)
+```
+
+
+# Hanabi !
+
+```{r hanabi_plots}
+plot(hanabi(CTSStagCountDF(ce_SL)))
+plot(hanabi(CTSStagCountDF(ce_no)))
+
+plot(hanabi(consensusClustersSE(ce_SL)|> assay()))
+plot(hanabi(consensusClustersSE(ce_no)|> assay()))
+
 ```
 
 # Session information
