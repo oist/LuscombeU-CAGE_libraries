@@ -1,7 +1,7 @@
 ---
 title: "CAGE Oikopleura"
 author: "Charles Plessy"
-date: "01/27/2023"
+date: "19/07/2023"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -16,23 +16,30 @@ knitr::opts_chunk$set(echo = TRUE)
 BAM files produced by HiSat2 are loaded in paired-end mode.  Sample names are
 parsed from the file names.
 
+```{r setup}
+BSgenomeToUse <- "BSgenome.Oidioi.OIST.Bar2.p4"
+if(isFALSE(requireNamespace(BSgenomeToUse, quietly = TRUE)))
+  install.packages(BSgenomeToUse,
+                   repos="https://oist.github.io/plessy_oikgenomes_drat/")
+pathToBamFiles <- "hisat2"
+```
+
 ```{r}
 library("CAGEr")
-# install.packages("BSgenome.Oidioi.OIST.Bar2.p4", repos="https://oist.github.io/plessy_oikgenomes_drat/")
-library("BSgenome.Oidioi.OIST.Bar2.p4")
+library("ggplot2")
 
-pathsToInputFiles <- list.files("hisat2/",
-                                pattern = "*.bam$",
+pathsToInputFiles <- list.files(pathToBamFiles,
+                                pattern = "*.sorted.bam$",
                                 full.names = TRUE)
 sampleLabels <- make.names(sub( ".sorted.bam", "", basename(pathsToInputFiles)))
 ce <-
-  CAGEexp( metadata = list(genomeName = "BSgenome.Oidioi.OIST.Bar2.p4")
+  CAGEexp( metadata = list(genomeName = BSgenomeToUse)
          , colData  = DataFrame( inputFiles     = pathsToInputFiles
                                , sampleLabels   = sampleLabels
                                , inputFilesType = "bamPairedEnd"
                                , row.names      = sampleLabels))
 
-ce <- getCTSS(ce, useMulticore = FALSE, correctSystematicG=FALSE, removeFirstG=FALSE)
+ce <- getCTSS(ce, useMulticore = TRUE, nrCores = 3, correctSystematicG=FALSE, removeFirstG=FALSE)
 ```
 
 # Polish sample data
@@ -41,9 +48,10 @@ Extra information is parsed from the file names, and is used to prepare short
 descriptions in plain English.
 
 ```{r}
-librarySizes(ce)
+librarySizes(ce) # This is only the mapped ones
 colData(ce)
-ce$SLfound <- grepl("SL",    sampleLabels(ce))
+ce$SLfound  <- grepl("SL", sampleLabels(ce))
+ce$SLfactor <- ce$SLfound |> factor(labels = c("SL not found", "SL found"))
 ce$sampleType <- "Adult"
 ce$sampleType[grepl("Rep", sampleLabels(ce))] <- "Embry"
 ce$RNA <- sampleLabels(ce) |> sub(pat = "_SL.*|_no.*", rep = "") |> sub(pat = "^X", rep = "") |> unname()
@@ -57,9 +65,65 @@ ce$Description <-
 colData(ce)
 ```
 
+## Get counts of unmapped reads
+
+```{r hisat}
+hs <- read.table(head = TRUE, "../AlignWithRNAseqPipelinePE/results/multiqc/hisat2/multiqc_data/multiqc_hisat2.txt")
+rownames(hs) <- make.names(hs$Sample)
+hs <- hs[sampleLabels(ce),]
+# Apparently, multimapped reads have been removed by the pipeline.
+all(librarySizes(ce) == hs$paired_aligned_one)
+ce$paired_aligned_one   <- hs$paired_aligned_one
+ce$paired_aligned_multi <- hs$paired_aligned_multi
+ce$paired_total         <- hs$paired_total
+```
+
+```{r otherqc}
+qc <- read.table(head = TRUE, sep = '\t', "../AlignWithRNAseqPipelinePE/results/multiqc/hisat2/multiqc_data/multiqc_general_stats.txt")
+rownames(qc) <- make.names(qc$Sample)
+qc2 <- qc[paste0(sampleLabels(ce), "_2"),]
+ce$realLibrarySizes <- qc2$FastQC..raw._mqc.generalstats.fastqc_raw.total_sequences
+ce$extracted    <- qc2$FastQC..trimmed._mqc.generalstats.fastqc_trimmed.total_sequences
+```
+
+```{r rrna}
+# Unfortunately we have only the sum of the extraction for both reads,
+# But we need the results in number of pairs.
+# rrna <- read.table(head = TRUE, sep = '\t', "../AlignWithRNAseqPipelinePE/results/multiqc/hisat2/multiqc_data/multiqc_sortmerna.txt")
+# rownames(rrna) <- make.names(rrna$Sample)
+# ce$rdna <- rrna[paste0(sampleLabels(ce), "_2"), "rRNA"]
+
+# Good enough approximate:
+ce$rdna <- ce$extracted - ce$paired_total
+```
+
+### Pipeline QC
+
+ - Almost all reads were properly extracted (non-Discarded).
+ - The proportion on unmapped reads is moderate.
+ - We do not find rRNA reads in the trans-spliced RNAs.
+ - The proportion of trans-spliced reads is noticeably smaller in the male sample.
+
+```{r pipeline_QC}
+msScope_nfcore_rnaseq <- function(libs) {
+  CAGEr:::.checkLibsDataFrame(libs, c("extracted", "rdna",
+                                      "paired_total", "paired_aligned_multi", "paired_aligned_one",
+                                      "realLibrarySizes"))
+  libs$rDNA           <- libs$rdna
+  libs$Unmapped       <- libs$paired_total - libs$paired_aligned_one - libs$paired_aligned_multi
+  libs$Multimapped    <- libs$paired_aligned_multi
+  libs$UniquelyMapped <- libs$paired_aligned_one
+  libs$Discarded      <- libs$realLibrarySizes - libs$extracted
+  list(libs = libs, columns = c("Discarded","rDNA", "Unmapped", "Multimapped", "UniquelyMapped"), total = libs$realLibrarySizes)
+}
+plotAnnot(ce, msScope_nfcore_rnaseq, group = "RNA", facet = "SLfactor", norm = FALSE) +
+  ylab("Number of tags processed") + xlab("Sample name") +
+  ggtitle("QC report of library alignment")
+```
+
 # Annotate
 
-As of today (Jan 2023), the gene models were produced by AUGUSTUS, and begin
+As of January 2023, the gene models were produced by AUGUSTUS, and begin
 at the translation start site.  The plots below should therefore be interpreted
 with caution.
 
@@ -71,57 +135,136 @@ gff$gene_name <- gff$gene_id
 
 ce <- annotateCTSS(ce, gff)
 colData(ce)[,c("librarySizes", "promoter", "exon", "intron", "unknown")]
-plotAnnot(ce[,   ce$SLfound], "counts", title = "Reads with splice leader")
-plotAnnot(ce[, ! ce$SLfound], "counts", title = "Reads without splice leader")
+colData(ce)[,c("promoter", "exon", "intron", "unknown")] |> as.matrix() |> prop.table(1)  |> round(2)
+plotAnnot(ce, "counts", group = "RNA", facet = "SLfactor", normalise = TRUE) +
+  ylab("Fraction of tags aligned") +
+  xlab("Sample name") +
+  ggtitle("Annotation of the aligned tags")
 ```
 
-# Correlate
+# Correlate expression per chromosome.
 
-```{r}
-#Too slow
-# corr.m <- plotCorrelation2( ce, samples = "all"
-#                           , tagCountThreshold = 100, applyThresholdBoth = FALSE
-#                           , method = "pearson")
-```
-
-# Profile
-
-```{r}
-plotReverseCumulatives(ce[,   ce$SLfound], fitInRange = c(3e3, 3e5), onePlot = TRUE, main = "SL found")
-plotReverseCumulatives(ce[, ! ce$SLfound], fitInRange = c(3e3, 3e5), onePlot = TRUE, main = "SL not found")
-```
-
-# Expression per chromosome.
+This gives a very quick and rough clustering of the samples.
 
 ```{r}
 ce <- summariseChrExpr(ce)
 seqNameTotalsSE(ce) |> assay()
+seqNameTotalsSE(ce) |> assay() |> cor(meth="spe") |> pheatmap::pheatmap()
 ```
 
-# Cluster the CAGE tags
+# Reverse cumulative distribution of the CTSSes
+
+Distributions of expression values differ strongly between the trans-splicing
+sites and the transcription start sites.  We will need to normalise them
+separately.
+
 
 ```{r}
-ce <- normalizeTagCount(ce, method = "simpleTpm")
-ce <- clusterCTSS(ce)
-ce <- cumulativeCTSSdistribution(ce)
-ce <- quantilePositions(ce)
-plotInterquantileWidth(ce, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
+ce <- setColors(ce, c("red", "red", "red", "red",
+                      "blue", "blue",
+                      "pink", "pink", "pink", "pink",
+                      "green", "green", "green", "green", "green", "green", "green", "green"))
+rangeForSL <- c(1e1, 5e2)
+plotReverseCumulatives(ce[,   ce$SLfound], fitInRange = rangeForSL, values = "raw", onePlot = TRUE, main = "SL found")
+rangeForTSS <- c(3e1, 3e4)
+plotReverseCumulatives(ce[, ! ce$SLfound], fitInRange = rangeForTSS, values = "raw", onePlot = TRUE, main = "SL not found")
 ```
 
-You can see that the trans-spliced tag clusters are very sharp, as expected.
+# Split the objects and normalise
 
-# Aggregate the CAGE tags
+## TPM for the trans-splicing sites
 
-At this point, the trans-spliced tags and the transcription start tags (splice
-leader not found) need to be processed separately.
+The expression values SL peaks do not follow a power law distribution.
 
 ```{r}
 ce_SL <- ce[,   ce$SLfound] |>
-  aggregateTagClusters() |>
+  resetCAGEexp() |>
+  normalizeTagCount(method = "simpleTpm")
+plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL found")
+```
+
+The male library has a different distribution of CTSS expression values compared
+with others.
+
+## Power law for the transcription start sites.
+
+```{r}
+ce_no <- ce[, ! ce$SLfound] |> resetCAGEexp()
+rangeForTSS <- c(3e1, 3e4)
+plotReverseCumulatives(ce_no, fitInRange = rangeForTSS, values = "raw", onePlot = TRUE, main = "SL not found (raw)")
+ce_no |> normalizeTagCount(method = "simpleTpm", fitInRange = rangeForTSS) |>
+  plotReverseCumulatives(ce_no.tpm, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL not found (TPM normalisation)")
+ce_no <- ce_no |> normalizeTagCount(method = "powerLaw", fitInRange = rangeForTSS)
+plotReverseCumulatives(ce_no, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL not found (power law normalisation")
+```
+
+The power law normalisation is more efficient at giving the same distribution
+to the libraries, at least on average expression values.  Again, the male
+library makes an exception.
+
+# Clustering
+
+## Produce sharp clusters of trans-splicing sites
+
+Try different parameters
+
+```{r try_paraclu}
+p10.0 <- ce_SL |> CTSSnormalizedTpmGR(1)|> head(10000) |> paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 0)
+hist(decode(score(p10.0))|>log10())
+# The distribution of scores is bimodal, with a valley around 1.
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 20L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 50L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 200L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 500L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
+# There is not much penalty keeping the peaks narrow.
+```
+
+## Produce sharp clusters of trans-splicing sites
+
+```{r ce_SL_paraclu}
+ce_SL <- ce_SL |> clusterCTSS( method = "paraclu"
+                             , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
+                             , threshold = 1   # See above.  Note that it allows low-score CTSS supported in other samples.
+                             , maxLength = 10L # Keep them sharp
+                             , useMulticore = TRUE # Deigo
+                             , nrCores = 8)    |>    # Yay !
+                  cumulativeCTSSdistribution() |>
+                  quantilePositions()
+plotInterquantileWidth(ce_SL, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
+tagClustersGR(ce_SL) |> sapply(length)
+tagClustersGR(ce_SL, 1) |> score() |> decode() |> log10() |> hist(br=100)
+tagClustersGR(ce_SL, "X41MA_SL") |> score() |> decode() |> log10() |> hist(br=100) # Males !
+
+(tagClustersGR(ce_SL, 1) |> score() > 1) |> sum()
+```
+
+## Cluster clusters of transcription start sites.
+
+  
+```{r ce_no_paraclu}
+ce_no <- ce_no |> clusterCTSS( method = "distclu"  # Not enough memory for paraclu?  Mabye because running in parallel?
+                             , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
+                             , threshold = 1   # Default
+                            # , maxLength = 200 # Not the default
+                             , useMulticore = TRUE # Deigo
+                             , nrCores = 8)    |>    # Yay !
+                  cumulativeCTSSdistribution() |>
+                  quantilePositions()
+plotInterquantileWidth(ce_no, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
+```
+
+# Aggregate the CAGE tags
+
+
+```{r}
+ce_SL <- ce_SL |> 
+  aggregateTagClusters(maxDist = 10L, tpmThreshold = 1) |>  # See the score distribution
   cumulativeCTSSdistribution(clusters = "consensusClusters") |>
   quantilePositions(clusters = "consensusClusters") |>
   annotateConsensusClusters(gff)
 
+# Consider removeSingletons = T, keepSingletonsAbove = ??
 ce_no <- ce[, ! ce$SLfound] |>
   aggregateTagClusters() |>
   cumulativeCTSSdistribution(clusters = "consensusClusters") |>
@@ -132,10 +275,13 @@ ce_no <- ce[, ! ce$SLfound] |>
 The clusters for the trans-spliced reads are short and contain most of the reads.
 
 ```{r}
-consensusClustersGR(ce_SL)
-ce_SL$outOfClusters / ce_SL$librarySizes
-# https://github.com/charles-plessy/CAGEr/issues/60
-# plotInterquantileWidth(ce, clusters = "consensusClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
+x <- consensusClustersGR(ce_SL)
+(100 - ce_SL$outOfClusters / ce_SL$librarySizes) |> round(3)
+# Again, the distribution of scores is bimodal, but this time it is because of males
+hist(log10(decode(score(x))), br = 100)
+consensusClustersGR(ce_SL, 1) |> score() |> decode() |> log10() |> hist(100)
+consensusClustersGR(ce_SL, 3) |> score() |> decode() |> log10() |> hist(100)
+plotInterquantileWidth(ce_SL, clusters = "consensusClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
 ```
 
 The clusters for transcription start reads are broader and miss ~ 10 % of the data.
@@ -157,7 +303,22 @@ well as the mismatches between reads and the genome.
 trks <- exportToTrack(ce, oneTrack = FALSE)
 for (n in seq_along(trks)) {
   name <- sampleLabels(ce)[n]
-  rtracklayer::export.bed(trks[n], paste0(name, ".ctss.bed"))
+  rtracklayer::export.bed(trks[n], paste0(name, ".ctss.bed.gz"))
+}
+
+trks <- exportToTrack(ce, oneTrack = FALSE)
+for (n in seq_along(trks)) {
+  name <- sampleLabels(ce)[n]
+  rtracklayer::export.bed(trks[n], paste0(name, ".ctss.bed.gz"))
+}
+# Export to BigWig if you would like to display in IGV.
+for (n in seq_along(trks)) {
+  name <- sampleLabels(ce)[n]
+  trkL <- split(trks[[n]], strand(trks[[n]]), drop = TRUE)
+  trkL[['+']]@trackLine@description <- paste(name, " plus")
+  trkL[['-']]@trackLine@description <- paste(name, " plus")
+  rtracklayer::export.bw(trkL[['+']], paste0(name, ".plus.bw"))
+  rtracklayer::export.bw(trkL[['-']], paste0(name, ".minus.bw"))
 }
 ```
 
@@ -172,7 +333,7 @@ files uploaded in this round, in order to clean up ZENBU in case they become
 obsolete because of defect or update.
 
 ```{r}
-UploadFingerPrint <- "Uploaded on 2023012701."
+UploadFingerPrint <- "Uploaded on 2023070501."
 
 .ZENBU_filelist <- function(DF, file = NULL, suffix, prefix = NULL) {
   DF_sub <- DF
@@ -205,16 +366,16 @@ UploadFingerPrint <- "Uploaded on 2023012701."
 # Export Consensus clusters
 
 ```{r}
-CC_to_track <- function(ce) {
-  # Waiting for a fix to https://github.com/charles-plessy/CAGEr/issues/70
-  trk <- consensusClustersGR(ce, qLow = .1, qUp = .9, returnInterquantileWidth = TRUE)
-  trk$thick <- ranges(trk$dominant_ctss)
-  trk <- exportToTrack(trk, qLow = .1, qUp = .9)
-  names(trk) <- NULL
-  trk
-}
+cctrack_SL <- exportToTrack(ce_SL, "consensusClusters", qLow = 0.1, qUp = 0.9)
+cctrack_SL@trackLine@description <- "CAGE Consensus Clusters for trans splicing sites"
+cctrack_SL@trackLine@name <- "SL"
+# Flat AG
+cctrack_SL$itemRgb <- ifelse(flagByUpstreamSequences(rowRanges(consensusClustersSE(ce_SL))$dominant_ctss, "AG"), "black", "grey")
 
-cctrack_SL <- CC_to_track(ce_SL)
+cctrack_SL[cctrack_SL$itemRgb == "black"] |> score() |> decode() |> log10() |> hist(br=100)
+cctrack_SL[cctrack_SL$itemRgb == "grey"]  |> score() |> decode() |> log10() |> hist(br=100)
+
+
 cctrack_no <- CC_to_track(ce_no)
 
 rtracklayer::export.bed(cctrack_SL, "clusters_SL.bed")
