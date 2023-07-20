@@ -16,6 +16,8 @@ knitr::opts_chunk$set(echo = TRUE)
 BAM files produced by HiSat2 are loaded in paired-end mode.  Sample names are
 parsed from the file names.
 
+## Setup
+
 ```{r setup}
 BSgenomeToUse <- "BSgenome.Oidioi.OIST.Bar2.p4"
 if(isFALSE(requireNamespace(BSgenomeToUse, quietly = TRUE)))
@@ -24,7 +26,13 @@ if(isFALSE(requireNamespace(BSgenomeToUse, quietly = TRUE)))
 pathToBamFiles <- "hisat2"
 ```
 
-```{r}
+## Load BAM files
+
+We use _CAGEr_ to load BAM files and turn the tag alignments into
+single-nucleotide positions called _CTSS_ (CAGE Transcription Start Sites).
+For trans-spliced sites, it convenieltly matches the acronym too.
+
+```{r load_BAM_files}
 library("CAGEr")
 library("ggplot2")
 
@@ -42,7 +50,9 @@ ce <-
 ce <- getCTSS(ce, useMulticore = TRUE, nrCores = 3, correctSystematicG=FALSE, removeFirstG=FALSE)
 ```
 
-# Polish sample data
+# Prepare metadata
+
+## Polish sample data
 
 Extra information is parsed from the file names, and is used to prepare short
 descriptions in plain English.
@@ -97,7 +107,7 @@ ce$extracted    <- qc2$FastQC..trimmed._mqc.generalstats.fastqc_trimmed.total_se
 ce$rdna <- ce$extracted - ce$paired_total
 ```
 
-### Pipeline QC
+# Pipeline QC
 
  - Almost all reads were properly extracted (non-Discarded).
  - The proportion on unmapped reads is moderate.
@@ -121,11 +131,12 @@ plotAnnot(ce, msScope_nfcore_rnaseq, group = "RNA", facet = "SLfactor", norm = F
   ggtitle("QC report of library alignment")
 ```
 
-# Annotate
+# Annotation QC
 
 As of January 2023, the gene models were produced by AUGUSTUS, and begin
 at the translation start site.  The plots below should therefore be interpreted
-with caution.
+with caution.  Nevertheless, they indicate that most of the CAGE reads align
+near promoters.
 
 ```{r}
 gff <- rtracklayer::import("../AlignWithRNAseqPipelinePE/Bar2_p4.gm.gtf")
@@ -176,6 +187,8 @@ CAGE data in BED format.  These files are lighter than BAM files and can be
 uploaded to ZENBU or re-loaded in _CAGEr_ by collaborators.  What BAM files can
 do but "CTSS" BED can not is to show the area covered by the read pair, as
 well as the mismatches between reads and the genome.
+
+## Prepare tracks
 
 ```{r}
 trks <- exportToTrack(ce, oneTrack = FALSE)
@@ -240,7 +253,6 @@ UploadFingerPrint <- "Uploaded on 2023070501."
 
 # zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -filelist ZENBU_upload_CTSS_bed.tsv -assembly Oidioi_Bar2_p4.Flye -score_exp raw -collab orXQCELWOZfm7KLNMMpPdD
 ```
-
 
 # Split the objects and normalise
 
