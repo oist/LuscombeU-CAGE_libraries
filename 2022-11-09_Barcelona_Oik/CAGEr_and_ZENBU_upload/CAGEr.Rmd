@@ -338,7 +338,7 @@ plotInterquantileWidth(ce_no, clusters = "tagClusters", tpmThreshold = 3, qLow =
 # at splice junctions, which we do not want to use for updating annotation and
 # defining operons.
 ce_SL <- ce_SL |> 
-  aggregateTagClusters(maxDist = 10L, tpmThreshold = 20) |>  # See also the score distribution
+  aggregateTagClusters(maxDist = 10L, tpmThreshold = 10, excludeSignalBelowThreshold = FALSE) |>  # See also the score distribution
   cumulativeCTSSdistribution(clusters = "consensusClusters") |>
   quantilePositions(clusters = "consensusClusters") |>
   annotateConsensusClusters(gff)
