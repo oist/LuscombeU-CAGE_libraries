@@ -177,11 +177,7 @@ ce <- setColors(ce, c("red", "red", "red", "red",
                       "blue", "blue",
                       "pink", "pink", "pink", "pink",
                       "green", "green", "green", "green", "green", "green", "green", "green"))
-rangeForSL <- c(1e1, 5e2)
-plotReverseCumulatives(ce[,   ce$SLfound], fitInRange = rangeForSL, values = "raw", onePlot = TRUE, main = "SL found")
-rangeForTSS <- c(3e1, 3e4)
-plotReverseCumulatives(ce[, ! ce$SLfound], fitInRange = rangeForTSS, values = "raw", onePlot = TRUE, main = "SL not found")
-#plotReverseCumulatives(ce, fitInRange = rangeForTSS, values = "raw", group = "SLfactor")
+plotReverseCumulatives(ce, fitInRange = c(1e3, 1e5), values = "raw", group = "SLfactor")
 ```
 
 # Export the CTSS data
