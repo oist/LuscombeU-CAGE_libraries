@@ -254,6 +254,12 @@ UploadFingerPrint <- "Uploaded on 2023070501."
 # zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -filelist ZENBU_upload_CTSS_bed.tsv -assembly Oidioi_Bar2_p4.Flye -score_exp raw -collab orXQCELWOZfm7KLNMMpPdD
 ```
 
+# Export the _CAGEexp_ object.
+
+```{r}
+saveRDS(ce, "ce.rds")
+```
+
 # Session information
 
 ```{r sessionInfo}

@@ -266,7 +266,6 @@ zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -file clusters_no.bed -name
 # Export the _CAGEexp_ object.
 
 ```{r}
-saveRDS(ce,       "ce.rds")
 saveRDS(ce_SL, "ce_SL.rds")
 saveRDS(ce_no, "ce_no.rds")
 ```
