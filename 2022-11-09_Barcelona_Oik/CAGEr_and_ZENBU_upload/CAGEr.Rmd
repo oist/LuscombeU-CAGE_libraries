@@ -30,11 +30,12 @@ pathToBamFiles <- "hisat2"
 
 We use _CAGEr_ to load BAM files and turn the tag alignments into
 single-nucleotide positions called _CTSS_ (CAGE Transcription Start Sites).
-For trans-spliced sites, it convenieltly matches the acronym too.
+For trans-spliced sites, it conveniently matches the same acronym.
 
 ```{r load_BAM_files}
 library("CAGEr")
 library("ggplot2")
+library("patchwork")
 
 pathsToInputFiles <- list.files(pathToBamFiles,
                                 pattern = "*.sorted.bam$",
@@ -128,7 +129,8 @@ msScope_nfcore_rnaseq <- function(libs) {
 }
 plotAnnot(ce, msScope_nfcore_rnaseq, group = "RNA", facet = "SLfactor", norm = FALSE) +
   ylab("Number of tags processed") + xlab("Sample name") +
-  ggtitle("QC report of library alignment")
+  ggtitle("QC report of CAGE library alignment",
+          sub = "The splice leader sequence was detected and removed before alignment.")
 ```
 
 # Annotation QC
@@ -150,7 +152,8 @@ colData(ce)[,c("promoter", "exon", "intron", "unknown")] |> as.matrix() |> prop.
 plotAnnot(ce, "counts", group = "RNA", facet = "SLfactor", normalise = TRUE) +
   ylab("Fraction of tags aligned") +
   xlab("Sample name") +
-  ggtitle("Annotation of the aligned tags")
+  ggtitle("Annotation of the aligned tags",
+          subtitle = "The promoters are defined as the 1-kb window centered on the transcript start site.")
 ```
 
 # Correlate expression per chromosome.
@@ -178,6 +181,7 @@ rangeForSL <- c(1e1, 5e2)
 plotReverseCumulatives(ce[,   ce$SLfound], fitInRange = rangeForSL, values = "raw", onePlot = TRUE, main = "SL found")
 rangeForTSS <- c(3e1, 3e4)
 plotReverseCumulatives(ce[, ! ce$SLfound], fitInRange = rangeForTSS, values = "raw", onePlot = TRUE, main = "SL not found")
+#plotReverseCumulatives(ce, fitInRange = rangeForTSS, values = "raw", group = "SLfactor")
 ```
 
 # Export the CTSS data
@@ -263,8 +267,38 @@ The expression values SL peaks do not follow a power law distribution.
 ```{r}
 ce_SL <- ce[,   ce$SLfound] |>
   resetCAGEexp() |>
-  normalizeTagCount(method = "simpleTpm")
+  normalizeTagCount(method = "simpleTpm") |>
+  annotateCTSS(gff)
 plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL found")
+p1 <- plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "raw") +
+  ggtitle("SL found", sub="Before normalisation") + theme_bw()
+p2 <- plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "normalized") +
+  ggtitle("SL found", sub="TPM normalised") + theme_bw()
+(p1 | p2) + plot_layout(guides = 'collect')
+
+# Explore properties of low-expressed CTSS
+CTSScoordinatesGR(ce_SL)$CTSS_expr_range <- CAGEr:::rowSums.RleDataFrame(CTSSnormalizedTpmDF(ce_SL)) |> decode() |> cut(c(0, 10, 1000, 1e6))
+summary(CTSScoordinatesGR(ce_SL)$CTSS_expr_range)
+plotAnnot_CTSS <- function(x, gff, ...) {
+  # plot percent of clusters, not percent of sum of expression of clusters
+  x <- resetCAGEexp(x)
+  DF <- lapply(assay(x), \(y) Rle(as.numeric(y > 0))) |> DataFrame()
+  assay(CTSStagCountSE(x)) <- DF
+  x <- annotateCTSS(x, gff)
+  x$librarySizes <- sapply(assay(x),sum)
+  plotAnnot(x, "counts")
+}
+
+# A lot of the low-expression ones are still near promoters, but pay attention
+# that "promoters" are 1-kb windows here.
+CTSScoordinatesGR(ce_SL)$CTSS_expr_range <- CAGEr:::rowSums.RleDataFrame(CTSSnormalizedTpmDF(ce_SL)) |> decode() |> cut(c(0, 10, 1000, 1e6))
+p_10 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(0,10]", ] , gff)
+p_1000 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(10,1e+03]", ], gff)
+p_1000000 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(1e+03,1e+06]", ], gff)
+
+(p_10 / p_1000 / p_1000000 ) + plot_layout(guides = 'collect')
+
+plotAnnot_CTSS(ce_SL[, ], gff)
 ```
 
 The male library has a different distribution of CTSS expression values compared
@@ -280,6 +314,12 @@ ce_no |> normalizeTagCount(method = "simpleTpm", fitInRange = rangeForTSS) |>
   plotReverseCumulatives(ce_no.tpm, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL not found (TPM normalisation)")
 ce_no <- ce_no |> normalizeTagCount(method = "powerLaw", fitInRange = rangeForTSS)
 plotReverseCumulatives(ce_no, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL not found (power law normalisation")
+
+p1 <- plotReverseCumulatives(ce_no, fitInRange = NULL, values = "raw") +
+  ggtitle("No SL", sub="Before normalisation") + theme_bw()
+p2 <- plotReverseCumulatives(ce_no, fitInRange = NULL, values = "normalized") +
+  ggtitle("No SL", sub="Power-law normalised") + theme_bw()
+(p1 | p2) + plot_layout(guides = 'collect')
 ```
 
 The power law normalisation is more efficient at giving the same distribution
@@ -293,8 +333,10 @@ library makes an exception.
 Try different parameters
 
 ```{r try_paraclu}
-p10.0 <- ce_SL |> CTSSnormalizedTpmGR(1)|> head(10000) |> paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 0)
-hist(decode(score(p10.0))|>log10())
+# Explore a subset of the data
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(10000) |>
+  paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 0) |>
+  score() |> decode() |> log10() |> hist()
 # The distribution of scores is bimodal, with a valley around 1.
 ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
 ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 20L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
@@ -316,15 +358,24 @@ ce_SL <- ce_SL |> clusterCTSS( method = "paraclu"
                   cumulativeCTSSdistribution() |>
                   quantilePositions()
 plotInterquantileWidth(ce_SL, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
+tcs <- tagClustersGR(ce_SL)
+tcs@metadata$colData <- colData(ce_SL)
+plotReverseCumulatives(tcs)
+f <- function(name, tc) {
+  tc[[name]] |> as.data.frame() |>
+    dplyr::mutate(sampleName = name)
+}
+lapply(names(tcs), f, tcs) |> do.call(what = rbind) |> ggplot() +
+  aes(x = score, fill = sampleName) +
+  geom_histogram(bins = 100) +
+  scale_x_log10() + facet_wrap(~sampleName) + theme_bw()
+
 tagClustersGR(ce_SL) |> sapply(length)
-tagClustersGR(ce_SL, 8) |> score() |> decode() |> log10() |> hist(br=100)
 # Not super useful plot: most SL TCs are CTSSes anyway.
 tagClustersGR(ce_SL, 1) |> score() |> decode() |> CAGEr:::.plotReverseCumulative(title=n)
 for (n in 2:8) {
 tagClustersGR(ce_SL, n) |> score() |> decode() |> CAGEr:::.plotReverseCumulative(title=n, add = TRUE)
 }
-
-tagClustersGR(ce_SL, "X41MA_SL") |> score() |> decode() |> log10() |> hist(br=100) # Males !
 
 (tagClustersGR(ce_SL, 1) |> score() > 1) |> sum()
 ```
@@ -332,15 +383,40 @@ tagClustersGR(ce_SL, "X41MA_SL") |> score() |> decode() |> log10() |> hist(br=10
 ## Cluster clusters of transcription start sites.
   
 ```{r ce_no_paraclu}
-ce_no <- ce_no |> clusterCTSS( method = "distclu"  # Not enough memory for paraclu?  Mabye because running in parallel?
+# Can't try paraclu at low threshold, but at high threshold it discards too much. (some clusters become single-peak)
+# ce_no <- ce_no |> clusterCTSS( method = "paraclu"  # Not enough memory for paraclu?  Mabye because running in parallel?
+#                              , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
+#                              , threshold = 10, thresholdIsTpm = TRUE  # At least 10 TPM in one library
+#                              , maxLength = 200 # Not the default
+#                              , useMulticore = TRUE # Deigo
+#                              , nrCores = 2)    |>    # Memory-hungry…
+#                   cumulativeCTSSdistribution() |>
+#                   quantilePositions()
+ce_no <- ce_no |> clusterCTSS( method = "distclu"  
                              , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
-                             , threshold = 1   # Default
-                            # , maxLength = 200 # Not the default
-                             , useMulticore = TRUE # Deigo
-                             , nrCores = 8)    |>    # Yay !
+                             , threshold = 1, thresholdIsTpm = TRUE)    |>  
                   cumulativeCTSSdistribution() |>
                   quantilePositions()
 plotInterquantileWidth(ce_no, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
+
+tcs <- tagClustersGR(ce_no)
+tcs@metadata$colData <- colData(ce_no)
+plotReverseCumulatives(tcs)
+f <- function(name, tc) {
+  tc[[name]] |> as.data.frame() |>
+    dplyr::mutate(sampleName = name)
+}
+lapply(names(tcs), f, tcs) |> do.call(what = rbind) |> ggplot() +
+  aes(x = score, fill = sampleName) +
+  geom_histogram(bins = 100) +
+  scale_x_log10() + facet_wrap(~sampleName) + theme_bw()
+
+tagClustersGR(ce_no) |> sapply(length)
+# Not super useful plot: most SL TCs are CTSSes anyway.
+tagClustersGR(ce_no, 1) |> score() |> decode() |> CAGEr:::.plotReverseCumulative(title=n)
+for (n in 2:8) {
+tagClustersGR(ce_no, n) |> score() |> decode() |> CAGEr:::.plotReverseCumulative(title=n, add = TRUE)
+}
 ```
 
 # Aggregate the CAGE tags
@@ -373,16 +449,30 @@ hist(log10(decode(score(x))), br = 100)
 consensusClustersGR(ce_SL, 1) |> score() |> decode() |> log10() |> hist(100)
 consensusClustersGR(ce_SL, 3) |> score() |> decode() |> log10() |> hist(100)
 plotInterquantileWidth(ce_SL, clusters = "consensusClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
+
+rowRanges(consensusClustersSE(ce_SL))$normExprTot <- rowSums(consensusClustersSE(ce_SL)|>assay("normalized")) 
+rowRanges(consensusClustersSE(ce_SL))$normExprRange <- cut(rowRanges(consensusClustersSE(ce_SL))$normExprTot, c(0, 10, 1000, 1e6))
+rowRanges(consensusClustersSE(ce_SL))$normExprRange  |> summary()
+
 ```
 
 The clusters for transcription start reads are broader and miss ~ 10 % of the data.
 
 ```{r}
-consensusClustersGR(ce_no)
-ce_no$outOfClusters / ce_no$librarySizes
+(cc_no <- consensusClustersGR(ce_no))
+(cc_no_qq <- consensusClustersGR(ce_no, qLow = 0.1, qUp = 0.9, returnInterquantileWidth = TRUE))
+(100 - ce_no$outOfClusters / ce_no$librarySizes) |> round(1)
+hist(log10(decode(score(cc_no))), br = 100)
+consensusClustersGR(ce_no, 1) |> score() |> decode() |> log10() |> hist(100)
+consensusClustersGR(ce_no, 3) |> score() |> decode() |> log10() |> hist(100)
+plotInterquantileWidth(ce_no, clusters = "consensusClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9, xlim = c(10, 1000))  + scale_x_log10()
 ```
 
 # Export Consensus clusters
+
+## Trans-splicing sites
+
+Paint in grey those that do not have `AG` upstream.
 
 ```{r}
 cctrack_SL <- exportToTrack(ce_SL, "consensusClusters", qLow = 0.1, qUp = 0.9)
@@ -394,9 +484,16 @@ cctrack_SL$itemRgb <- ifelse(flagByUpstreamSequences(rowRanges(consensusClusters
 cctrack_SL[cctrack_SL$itemRgb == "black"] |> score() |> decode() |> log10() |> hist(br=100)
 cctrack_SL[cctrack_SL$itemRgb == "grey"]  |> score() |> decode() |> log10() |> hist(br=100)
 
-cctrack_no <- CC_to_track(ce_no)
-
 rtracklayer::export.bed(cctrack_SL, "clusters_SL.bed")
+```
+
+```{r}
+cctrack_no <- exportToTrack(ce_no, "consensusClusters", qLow = 0.1, qUp = 0.9)
+cctrack_no@trackLine@description <- "CAGE Consensus Clusters for transcription start sites"
+cctrack_no@trackLine@name <- "TSS"
+# Flat the clusters of width 1.
+cctrack_no$itemRgb <- ifelse(width(cctrack_no) > 1, "black", "grey")
+
 rtracklayer::export.bed(cctrack_no, "clusters_no.bed")
 ```
 
@@ -430,6 +527,11 @@ cctrack_SL$dominant_ctss |> promoters(2,0) |> getSeq (x = BSgenome::getBSgenome(
 # Sharp and broad promoters
 
 ```{r}
+TSSlogo(cc_no, 30)
+TSSlogo(cc_no[width(cc_no)  > 25], 30) + ggtitle("width > 25")
+TSSlogo(cc_no[width(cc_no) <= 25], 30) + ggtitle("width <= 25")
+
+
 hist(cctrack_no$tpm.dominant_ctss |> decode() / score(cctrack_no) |> decode())
 cctrack_no[cctrack_no$tpm.dominant_ctss |> decode() / score(cctrack_no) |> decode() > 0.5] |> seqLogo_GR(40,10)
 cctrack_no[cctrack_no$tpm.dominant_ctss |> decode() / score(cctrack_no) |> decode() < 0.5] |> seqLogo_GR(40,10)
@@ -441,7 +543,7 @@ cctrack_no[cctrack_no$tpm.dominant_ctss |> decode() / score(cctrack_no) |> decod
 ce_no <- ce_no |> quickEnhancers()
 enh_trk <- ce_no[["enhancers"]] |> rowRanges() |> exportToTrack()
 rtracklayer::export.bed(enh_trk, "enhancers.bed")
-enh_trk |> seqLogo_GR()
+enh_trk |> TSSlogo()
 enh_trk |> plyranges::mutate(dominant_ctss = GRanges(seqnames, thick, seqinfo = seqinfo(enh_trk))) |> seqLogo_GR(50,50)
 rtracklayer::export.bed(enh_trk, "enhancers.bed")
 ```
