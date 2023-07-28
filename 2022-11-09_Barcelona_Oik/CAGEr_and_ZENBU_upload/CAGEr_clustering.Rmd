@@ -16,6 +16,9 @@ knitr::opts_chunk$set(echo = TRUE)
 See the [CAGEr_CTSS](./CAGEr_CTSS.Rmd) file for how the data was loaded.
 
 ```{r setup}
+library("CAGEr")
+library("ggplot2")
+library("patchwork")
 ce <- readRDS("ce.rds")
 ```
 
@@ -30,36 +33,39 @@ ce_SL <- ce[,   ce$SLfound] |>
   resetCAGEexp() |>
   normalizeTagCount(method = "simpleTpm") |>
   annotateCTSS(gff)
-plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "normalized", onePlot = TRUE, main = "SL found")
-p1 <- plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "raw") +
+p1_sl <- plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "raw") +
   ggtitle("SL found", sub="Before normalisation") + theme_bw()
-p2 <- plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "normalized") +
+p2_sl <- plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "normalized") +
   ggtitle("SL found", sub="TPM normalised") + theme_bw()
-(p1 | p2) + plot_layout(guides = 'collect')
+(p1_sl | p2_sl) + plot_layout(guides = 'collect')
+
+CTSScoordinatesGRL <- function(object) {
+  grl <- lapply(sampleLabels(object), CTSStagCountGR, object = object) |> GRangesList()
+  names(grl) <- unname(sampleLabels(object))
+  # Also pass the original colData?
+  grl@metadata$colData <- colData(object)
+  grl
+}
 
 # Explore properties of low-expressed CTSS
 CTSScoordinatesGR(ce_SL)$CTSS_expr_range <- CAGEr:::rowSums.RleDataFrame(CTSSnormalizedTpmDF(ce_SL)) |> decode() |> cut(c(0, 10, 1000, 1e6))
 summary(CTSScoordinatesGR(ce_SL)$CTSS_expr_range)
-plotAnnot_CTSS <- function(x, gff, ...) {
+plotAnnot_CTSS <- function(x, gff, up = 100, down = 100, ...) {
   # plot percent of clusters, not percent of sum of expression of clusters
   x <- resetCAGEexp(x)
   DF <- lapply(assay(x), \(y) Rle(as.numeric(y > 0))) |> DataFrame()
   assay(CTSStagCountSE(x)) <- DF
-  x <- annotateCTSS(x, gff)
+  x <- annotateCTSS(x, gff, up, down)
   x$librarySizes <- sapply(assay(x),sum)
   plotAnnot(x, "counts")
 }
 
-# A lot of the low-expression ones are still near promoters, but pay attention
-# that "promoters" are 1-kb windows here.
-CTSScoordinatesGR(ce_SL)$CTSS_expr_range <- CAGEr:::rowSums.RleDataFrame(CTSSnormalizedTpmDF(ce_SL)) |> decode() |> cut(c(0, 10, 1000, 1e6))
-p_10 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(0,10]", ] , gff)
-p_1000 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(10,1e+03]", ], gff)
-p_1000000 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(1e+03,1e+06]", ], gff)
-
+# A lot of the low-expression ones are still near promoters.
+# Pay attention that here "promoters" are 200-bp windows.
+p_10 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(0,10]", ] , gff) + ggtitle("(0,10]")
+p_1000 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(10,1e+03]", ], gff) + ggtitle("(10,1e+03]")
+p_1000000 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(1e+03,1e+06]", ], gff) + ggtitle("(1e+03,1e+06]")
 (p_10 / p_1000 / p_1000000 ) + plot_layout(guides = 'collect')
-
-plotAnnot_CTSS(ce_SL[, ], gff)
 ```
 
 The male library has a different distribution of CTSS expression values compared
@@ -119,9 +125,15 @@ ce_SL <- ce_SL |> clusterCTSS( method = "paraclu"
                   cumulativeCTSSdistribution() |>
                   quantilePositions()
 plotInterquantileWidth(ce_SL, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
+
 tcs <- tagClustersGR(ce_SL)
-tcs@metadata$colData <- colData(ce_SL)
-plotReverseCumulatives(tcs)
+tcs |> sapply(length)
+
+p3_sl <- plotReverseCumulatives(tcs) + theme_bw() + ggtitle("SL found", sub = "Tag clusters")
+(p2_sl + scale_y_log10(limits=c(1,1e5)) + ggtitle("SL found", sub = "CTSS") |
+    p3_sl + scale_y_log10(limits=c(1,1e5))) + plot_layout(guides = 'collect')
+
+# Alternative representation as histograms
 f <- function(name, tc) {
   tc[[name]] |> as.data.frame() |>
     dplyr::mutate(sampleName = name)
@@ -130,15 +142,6 @@ lapply(names(tcs), f, tcs) |> do.call(what = rbind) |> ggplot() +
   aes(x = score, fill = sampleName) +
   geom_histogram(bins = 100) +
   scale_x_log10() + facet_wrap(~sampleName) + theme_bw()
-
-tagClustersGR(ce_SL) |> sapply(length)
-# Not super useful plot: most SL TCs are CTSSes anyway.
-tagClustersGR(ce_SL, 1) |> score() |> decode() |> CAGEr:::.plotReverseCumulative(title=n)
-for (n in 2:8) {
-tagClustersGR(ce_SL, n) |> score() |> decode() |> CAGEr:::.plotReverseCumulative(title=n, add = TRUE)
-}
-
-(tagClustersGR(ce_SL, 1) |> score() > 1) |> sum()
 ```
 
 ## Cluster clusters of transcription start sites.
@@ -153,13 +156,15 @@ tagClustersGR(ce_SL, n) |> score() |> decode() |> CAGEr:::.plotReverseCumulative
 #                              , nrCores = 2)    |>    # Memory-hungry…
 #                   cumulativeCTSSdistribution() |>
 #                   quantilePositions()
-ce_no <- ce_no |> clusterCTSS( method = "distclu"  
-                             , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
-                             , threshold = 1, thresholdIsTpm = TRUE)    |>  
-                  cumulativeCTSSdistribution() |>
-                  quantilePositions()
+ce_no <- ce_no |>
+  clusterCTSS( method = "distclu"  
+             , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
+             , threshold = 1, thresholdIsTpm = TRUE)    |>  
+  cumulativeCTSSdistribution()                          |>
+  quantilePositions()                                   |>
+  annotateTagClusters(gff, up = 100, down = 0)
 plotInterquantileWidth(ce_no, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
-
+plotAnnot(tagClustersGR(ce_SL), 'counts', "Tag clusters") # 
 tcs <- tagClustersGR(ce_no)
 tcs@metadata$colData <- colData(ce_no)
 plotReverseCumulatives(tcs)
@@ -190,7 +195,7 @@ ce_SL <- ce_SL |>
   aggregateTagClusters(maxDist = 10L, tpmThreshold = 10, excludeSignalBelowThreshold = FALSE) |>  # See also the score distribution
   cumulativeCTSSdistribution(clusters = "consensusClusters") |>
   quantilePositions(clusters = "consensusClusters") |>
-  annotateConsensusClusters(gff)
+  annotateConsensusClusters(gff, up = 100, down = 0)
 
 # Consider removeSingletons = T, keepSingletonsAbove = ??
 ce_no <- ce_no |>
@@ -205,8 +210,60 @@ The clusters for the trans-spliced reads are short and contain most of the reads
 ```{r}
 x <- consensusClustersGR(ce_SL)
 (100 - ce_SL$outOfClusters / ce_SL$librarySizes) |> round(3)
-# Again, the distribution of scores is bimodal
+# No score is lower than our 10 TPM threshold
 hist(log10(decode(score(x))), br = 100)
+x$maxTPM <- ce_SL |> consensusClustersSE() |> assay("normalized") |> rowMax() |> unname() |> Rle()
+hist(log10(decode(x$maxTPM)), br = 100)
+consensusClustersGRL <- function(object) {
+  ccGRreallyGR <- function(object, label) {
+    gr <- GRanges(consensusClustersGR(object, label))
+    score(gr) <- Rle(score(gr))
+    gr
+  }
+  grl <- lapply(sampleLabels(object), ccGRreallyGR, object = object) |> GRangesList()
+  names(grl) <- unname(sampleLabels(object))
+  # Also pass the original colData?
+  grl@metadata$colData <- colData(object)
+  grl
+}
+clustersGRL <- consensusClustersGRL(ce_SL) |>
+  endoapply(\(gr) {
+    gr$expr_range <- score(gr) |> decode() |> cut(c(0, 10, 1000, 1e6), include.lowest = TRUE)
+    gr
+  })
+clustersGRL |> sapply(\(gr) table(gr$expr_range))
+
+filterGRL <- function(grl, x) {
+  endoapply(grl, \(gr) {
+    gr[gr$expr_range == x]
+  })
+}
+myPlotAnnot <- function(grl, range) {
+  grl |> filterGRL(range) |> plotAnnot("counts", range)
+}
+
+p1_cc <- myPlotAnnot(clustersGRL, "[0,10]")
+p2_cc <- myPlotAnnot(clustersGRL, "(10,1e+03]")
+p3_cc <- myPlotAnnot(clustersGRL, "(1e+03,1e+06]")
+
+(p1_cc / p2_cc / p3_cc) + plot_layout(guides = 'collect')
+
+
+plotReverseCumulatives(clustersGRL)
+plotAnnot(clustersGRL, "counts", "Consensus clusters")
+x$expr_range <- x$maxTPM |> decode() |> cut(c(0, 10, 1000, 1e6))
+table(x$expr_range)
+plotAnnot(clustersGRL, "counts", "Consensus clusters", facet="expr_range")
+
+
+# A lot of the low-expression ones are still near promoters.
+# Pay attention that here "promoters" are 200-bp windows.
+p_10 <- plotAnnot_CTSS(x[x$expr_range == "(0,10]", ] , gff) + ggtitle("(0,10]")
+p_1000 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(10,1e+03]", ], gff) + ggtitle("(10,1e+03]")
+p_1000000 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(1e+03,1e+06]", ], gff) + ggtitle("(1e+03,1e+06]")
+(p_10 / p_1000 / p_1000000 ) + plot_layout(guides = 'collect')
+
+
 consensusClustersGR(ce_SL, 1) |> score() |> decode() |> log10() |> hist(100)
 consensusClustersGR(ce_SL, 3) |> score() |> decode() |> log10() |> hist(100)
 plotInterquantileWidth(ce_SL, clusters = "consensusClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
