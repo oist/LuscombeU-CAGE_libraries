@@ -26,7 +26,15 @@ ce <- readRDS("ce.rds")
 
 ## TPM for the trans-splicing sites
 
-The expression values SL peaks do not follow a power law distribution.
+The expression values SL peaks do not follow a power law distribution.  We can
+see three components in the reverse cumulative distribution of the raw and
+TPM-normalised expression values:
+
+ - Less than 10 TPM;
+ - between 10 and 1000 TPM;
+ - more than 1000 TPM.
+
+Also, the male sample has a different distribution of expression levels.
 
 ```{r}
 ce_SL <- ce[,   ce$SLfound] |>
@@ -34,11 +42,19 @@ ce_SL <- ce[,   ce$SLfound] |>
   normalizeTagCount(method = "simpleTpm") |>
   annotateCTSS(gff)
 p1_sl <- plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "raw") +
-  ggtitle("SL found", sub="Before normalisation") + theme_bw()
+  ggtitle("Before normalisation", sub="Trans-splicing sites") + theme_bw()
 p2_sl <- plotReverseCumulatives(ce_SL, fitInRange = NULL, values = "normalized") +
-  ggtitle("SL found", sub="TPM normalised") + theme_bw()
+  ggtitle("TPM normalised", sub="Trans-splicing sites") + theme_bw()
 (p1_sl | p2_sl) + plot_layout(guides = 'collect')
+```
 
+The highly-expressed class is rare and close to promoters.  The mid-expressed
+class contains a number of clusters that is roughly what we expect given than
+~40% of the genes were reported to be trans-spliced.  The lowest tier of
+expression comprises a very large number of sites but accounts for less than
+1% of the library.
+
+```{r}
 CTSScoordinatesGRL <- function(object) {
   grl <- lapply(sampleLabels(object), CTSStagCountGR, object = object) |> GRangesList()
   names(grl) <- unname(sampleLabels(object))
@@ -48,11 +64,19 @@ CTSScoordinatesGRL <- function(object) {
 }
 
 # Explore properties of low-expressed CTSS
-CTSScoordinatesGR(ce_SL)$CTSS_expr_range <- CAGEr:::rowSums.RleDataFrame(CTSSnormalizedTpmDF(ce_SL)) |> decode() |> cut(c(0, 10, 1000, 1e6))
-summary(CTSScoordinatesGR(ce_SL)$CTSS_expr_range)
-plotAnnot_CTSS <- function(x, gff, up = 100, down = 100, ...) {
+score(CTSScoordinatesGR(ce_SL)) <- CAGEr:::rowSums.RleDataFrame(CTSSnormalizedTpmDF(ce_SL)) / length(sampleLabels(ce_SL))
+# Confirmation that the cutoffs are usable on pooled data.
+CTSScoordinatesGR(ce_SL) |> plotReverseCumulatives(val = "norm", fit=NULL, group = "Pooled samples") + geom_vline(xintercept = c(10, 1000))
+CTSScoordinatesGR(ce_SL)$CTSS_expr_range <- score(CTSScoordinatesGR(ce_SL)) |> decode() |> cut(c(0, 10, 1000, 1e6)) |> Rle()
+
+# The hightly expressed CTSS are rare but make most of the library.
+tapply(CTSScoordinatesGR(ce_SL)$score, CTSScoordinatesGR(ce_SL)$CTSS_expr_range, length)
+round(tapply(CTSScoordinatesGR(ce_SL)$score, CTSScoordinatesGR(ce_SL)$CTSS_expr_range, sum) / 1e6, 2)
+
+plotAnnot_CTSS <- function(x, factor, gff, up = 100, down = 0, ...) {
   # plot percent of clusters, not percent of sum of expression of clusters
   x <- resetCAGEexp(x)
+  x <- x[factor,]
   DF <- lapply(assay(x), \(y) Rle(as.numeric(y > 0))) |> DataFrame()
   assay(CTSStagCountSE(x)) <- DF
   x <- annotateCTSS(x, gff, up, down)
@@ -61,15 +85,12 @@ plotAnnot_CTSS <- function(x, gff, up = 100, down = 100, ...) {
 }
 
 # A lot of the low-expression ones are still near promoters.
-# Pay attention that here "promoters" are 200-bp windows.
-p_10 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(0,10]", ] , gff) + ggtitle("(0,10]")
-p_1000 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(10,1e+03]", ], gff) + ggtitle("(10,1e+03]")
-p_1000000 <- plotAnnot_CTSS(ce_SL[CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(1e+03,1e+06]", ], gff) + ggtitle("(1e+03,1e+06]")
-(p_10 / p_1000 / p_1000000 ) + plot_layout(guides = 'collect')
+# Pay attention that here "promoters" are 100-bp windows strictly upstram
+p_10_sl      <- plotAnnot_CTSS(ce_SL, (CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(0,10]" )       |> decode(), gff) + ggtitle("(0,10]")
+p_1000_sl    <- plotAnnot_CTSS(ce_SL, (CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(10,1e+03]")    |> decode(), gff) + ggtitle("(10,1e+03]")
+p_1000000_sl <- plotAnnot_CTSS(ce_SL, (CTSScoordinatesGR(ce_SL)$CTSS_expr_range == "(1e+03,1e+06]") |> decode(), gff) + ggtitle("(1e+03,1e+06]")
+(p_10_sl / p_1000_sl / p_1000000_sl ) + plot_layout(guides = 'collect')
 ```
-
-The male library has a different distribution of CTSS expression values compared
-with others.
 
 ## Power law for the transcription start sites.
 
@@ -97,14 +118,25 @@ library makes an exception.
 
 ## Produce sharp clusters of trans-splicing sites
 
+We know from published results and from preliminary observations of our data
+that the trans-splicing sites are single-base resolution and that sometimes
+there are some secondary sites in the vicinity of a primary one.  Therefore we
+will use the _paraclu_ clustering method, which allows us to cap the length of
+the clusters to a maximum, which we will set to 10 nucleotides.  We also will
+remove the CTSS with a expression level lower than 1 TPM in all samples.
+
 Try different parameters
 
-```{r try_paraclu}
+```{r try_paraclu_singleton_removal}
 # Explore a subset of the data
 ce_SL |> CTSSnormalizedTpmGR(1)|> head(10000) |>
-  paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 0) |>
-  score() |> decode() |> log10() |> hist()
-# The distribution of scores is bimodal, with a valley around 1.
+  paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 0) |> plotReverseCumulatives()
+# Clustering does dot affect much the distribution.
+ce_SL |> CTSSnormalizedTpmGR(1)|> head(10000) |>
+  paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> plotReverseCumulatives()
+```
+
+```{r try_paraclu_maxlength}
 ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 10L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
 ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 20L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
 ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 50L, removeSingletons = TRUE, keepSingletonsAbove = 1) |> length()
@@ -119,20 +151,34 @@ ce_SL |> CTSSnormalizedTpmGR(1)|> head(1000) |> paraclu(maxLength = 500L, remove
 ce_SL <- ce_SL |> clusterCTSS( method = "paraclu"
                              , nrPassThreshold = 1 # Default.  We do not have replicates for all time points
                              , threshold = 1   # See above.  Note that it allows low-score CTSS supported in other samples.
+                             , removeSingletons = TRUE
+                             , keepSingletonsAbove = 1
                              , maxLength = 10L # Keep them sharp
                              , useMulticore = TRUE # Deigo
                              , nrCores = 8)    |>    # Yay !
                   cumulativeCTSSdistribution() |>
                   quantilePositions()
-plotInterquantileWidth(ce_SL, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
+```
 
+Most tag clusters are much narrower than the maximum width allowed.
+
+```{r TC_IQ_width}
+plotInterquantileWidth(ce_SL, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9) + ggplot2::theme_bw()
+```
+
+Distribution of the expression values in CTSS and tag clusters are very similar,
+except that the low-expressed ones were filtered out.
+
+```{r}
 tcs <- tagClustersGR(ce_SL)
 tcs |> sapply(length)
 
-p3_sl <- plotReverseCumulatives(tcs) + theme_bw() + ggtitle("SL found", sub = "Tag clusters")
-(p2_sl + scale_y_log10(limits=c(1,1e5)) + ggtitle("SL found", sub = "CTSS") |
+p3_sl <- plotReverseCumulatives(tcs, val="norm", fit=NULL) + theme_bw() + ggtitle("Tag clusters", sub = "Trans-splicing sites")
+(p2_sl + scale_y_log10(limits=c(1,1e5)) + ggtitle("CTSS", sub = "Trans-splicing sites") |
     p3_sl + scale_y_log10(limits=c(1,1e5))) + plot_layout(guides = 'collect')
+```
 
+```{r}
 # Alternative representation as histograms
 f <- function(name, tc) {
   tc[[name]] |> as.data.frame() |>
@@ -210,6 +256,7 @@ The clusters for the trans-spliced reads are short and contain most of the reads
 ```{r}
 x <- consensusClustersGR(ce_SL)
 (100 - ce_SL$outOfClusters / ce_SL$librarySizes) |> round(3)
+plotReverseCumulatives(x)
 # No score is lower than our 10 TPM threshold
 hist(log10(decode(score(x))), br = 100)
 x$maxTPM <- ce_SL |> consensusClustersSE() |> assay("normalized") |> rowMax() |> unname() |> Rle()
@@ -228,7 +275,10 @@ consensusClustersGRL <- function(object) {
 }
 clustersGRL <- consensusClustersGRL(ce_SL) |>
   endoapply(\(gr) {
-    gr$expr_range <- score(gr) |> decode() |> cut(c(0, 10, 1000, 1e6), include.lowest = TRUE)
+    #gr$expr_range <- score(gr) |> decode() |> cut(c(0, 10, 1000, 1e6), include.lowest = TRUE)
+    gr$expr_range <- score(gr) |> decode() |> cut(c(0, 10, 1000, 1e6), include.lowest = FALSE)
+    gr$expr_range <- gr$expr_range |> factor(levels = append("[0]", levels(gr$expr_range))) 
+    gr$expr_range[is.na(gr$expr_range)] <- "[0]"
     gr
   })
 clustersGRL |> sapply(\(gr) table(gr$expr_range))
