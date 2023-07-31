@@ -11,7 +11,8 @@ screen a broader set of transcriptional states.
 sequences (`ACTCATCCCATTTTTGAGTCCGATTTCGATTGTCTAACAG`) were recognised with
 the [TagDust](https://doi.org/10.1186/s12859-015-0454-y) program embedded
 in a [_Nextflow_ pipeline](https://github.com/oist/plessy_splitspliceleaderpe)
-(revision ID `f080d7c468`), producing two sets of read pairs per sample.
+(revision ID `f080d7c468` according to _Nextflow_, but it seems to be commit
+`545bd02ee200a76f0ada5ee49f5f2f95004c7e60`), producing two sets of read pairs per sample.
 
     nextflow run ./main.nf --input input.csv -profile oist -w /flash/LuscombeU/deletemeCharlesPlessy/nf_tmp_CAGE2022_extractSL --arch SL.arch --rrna OKIrRNA.fa
     
