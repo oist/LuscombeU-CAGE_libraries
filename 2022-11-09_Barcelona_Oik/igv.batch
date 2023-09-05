@@ -1,6 +1,9 @@
 new
 genome /bucket/LuscombeU/common/Oikopleura/Genomes/Bar2_p4/Bar2_p4.fa
 load clusters_no.bed
+load clusters_no.old.bed
+load clusters_no.old.paraclu.bed
+load clusters_no.older.bed
 load clusters_SL.bed
 load clusters_SL.1tpm.bed
 load clusters_SL.distclu.bed
