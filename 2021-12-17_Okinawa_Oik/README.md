@@ -11,14 +11,11 @@ screen a broader set of transcriptional states.
 sequences (`ACTCATCCCATTTTTGAGTCCGATTTCGATTGTCTAACAG`) were recognised with
 the [TagDust](https://doi.org/10.1186/s12859-015-0454-y) program embedded
 in a [_Nextflow_ pipeline](https://github.com/oist/plessy_splitspliceleaderpe)
-(revision ID `f080d7c468` according to _Nextflow_, but it seems to be commit
-`545bd02ee200a76f0ada5ee49f5f2f95004c7e60`), producing two sets of read pairs per sample.
+(tag `v1.0.0` revision ID `2dd9ca3901`), producing two sets of read pairs per sample.
 
-    nextflow run ./main.nf --input input.csv -profile oist -w /flash/LuscombeU/deletemeCharlesPlessy/nf_tmp_CAGE2022_extractSL --arch SL.arch --rrna OKIrRNA.fa
-    
-_Note that the pipeline is a draft and that its documentation may be misleading._
+    nextflow run oist/plessy_splitspliceleaderpe --input input.csv -profile oist -w /flash/LuscombeU/charles-plessy/cache/deletemeInOctober --arch SL.Oikopleura_diocia.arch --rrna OKIrRNA.fa
 
-The `SL.arch` file contains:
+The `SL.Oikopleura_diocia.arch` file contains:
 
     tagdust -1 S:ACTCATCCCATTTTTGAGTCCGATTTCGATTGTCTAACAG -2 R:N
     tagdust -1 R:N
@@ -31,10 +28,10 @@ name (such as `DE1_T1_SL_un_READ1.fq.gz`).
 I did not use the rRNA-filtered reads produced by TagDust, as it removed
 large numbers of reads that do not match rDNA well...
 
-I chose the [_nf-core_ RNA-seq pipeline](https://nf-co.re/rnaseq) to align
-the CAGE reads.  It was version `3.4` at that time.
+We used [_nf-core_ RNA-seq pipeline](https://nf-co.re/rnaseq) version `3.12` to
+align the CAGE reads.
 
-    nextflow run nf-core/rnaseq -r 3.4 -name CAGE_Oki_nf_PE_resume1 -profile oist -work-dir /flash/LuscombeU/deletemeCharlesPlessy/nf_CAGE_Oki_20220106_PE -params-file nf-params.json -resume
+    nextflow run nf-core/rnaseq -r 3.12 -name CAGE_Oki_nf_PE_resume1 -profile oist -work-dir /flash/LuscombeU/deletemeCharlesPlessy/nf_CAGE_Oki_20220106_PE -params-file nf-params.json -resume
 
 As a control, I aligned Read 1 (R1) and Read 2 (R2) alone in single-end
 mode.  It showed that alignment rate was increased by trimming R2, but not R1.
