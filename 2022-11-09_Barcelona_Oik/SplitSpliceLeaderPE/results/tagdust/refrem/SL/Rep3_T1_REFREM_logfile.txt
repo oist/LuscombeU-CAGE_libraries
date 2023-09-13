@@ -1,33 +1,33 @@
-[2023-01-23 21:11:33]	Tagdust 2.33, Copyright (C) 2013 Timo Lassmann <timolassmann@gmail.com>
-[2023-01-23 21:11:33]	cmd: tagdust -t 12 -ref OP113814.fa -arch SL.arch -o Rep3_T1_REFREM __clean__read1.fq.gz __clean__read2.fq.gz 
-[2023-01-23 21:11:33]	Start Run
+[2023-09-11 23:46:22]	Tagdust 2.33, Copyright (C) 2013 Timo Lassmann <timolassmann@gmail.com>
+[2023-09-11 23:46:22]	cmd: tagdust -t 12 -ref OP113814.fa -arch SL.Oikopleura_diocia.arch -o Rep3_T1_REFREM __clean__read1.fq.gz __clean__read2.fq.gz 
+[2023-09-11 23:46:22]	Start Run
 --------------------------------------------------
-[2023-01-23 21:11:33]	Looking at file:__clean__read1.fq.gz
-[2023-01-23 21:11:33]	Searching for best architecture in file 'SL.arch'
-[2023-01-23 21:11:40]	Using: -1 R:N 
-[2023-01-23 21:11:40]	1.00 Confidence.
-[2023-01-23 21:11:40]	Looking at file:__clean__read2.fq.gz
-[2023-01-23 21:11:40]	Searching for best architecture in file 'SL.arch'
-[2023-01-23 21:11:50]	Using: -1 R:N 
-[2023-01-23 21:11:50]	1.00 Confidence.
-[2023-01-23 21:11:55]	Determining threshold for read0.
-[2023-01-23 21:12:04]	Long sequence found. Need to realloc model...
-[2023-01-23 21:12:05]	Selected Threshold:: 3.029877
-[2023-01-23 21:12:05]	Determining threshold for read1.
-[2023-01-23 21:12:18]	Long sequence found. Need to realloc model...
-[2023-01-23 21:12:19]	Selected Threshold:: 3.023334
-[2023-01-23 21:21:13]	Done.
+[2023-09-11 23:46:22]	Looking at file:__clean__read1.fq.gz
+[2023-09-11 23:46:22]	Searching for best architecture in file 'SL.Oikopleura_diocia.arch'
+[2023-09-11 23:46:34]	Using: -1 R:N 
+[2023-09-11 23:46:34]	1.00 Confidence.
+[2023-09-11 23:46:34]	Looking at file:__clean__read2.fq.gz
+[2023-09-11 23:46:34]	Searching for best architecture in file 'SL.Oikopleura_diocia.arch'
+[2023-09-11 23:46:49]	Using: -1 R:N 
+[2023-09-11 23:46:49]	1.00 Confidence.
+[2023-09-11 23:46:57]	Determining threshold for read0.
+[2023-09-11 23:47:07]	Long sequence found. Need to realloc model...
+[2023-09-11 23:47:08]	Selected Threshold:: 3.029877
+[2023-09-11 23:47:08]	Determining threshold for read1.
+[2023-09-11 23:47:22]	Long sequence found. Need to realloc model...
+[2023-09-11 23:47:23]	Selected Threshold:: 3.023334
+[2023-09-12 00:02:03]	Done.
 
-[2023-01-23 21:21:13]	__clean__read1.fq.gz	Input file 0.
-[2023-01-23 21:21:13]	__clean__read2.fq.gz	Input file 1.
-[2023-01-23 21:21:13]	63191378	total input reads
-[2023-01-23 21:21:13]	3.02	selected threshold
-[2023-01-23 21:21:13]	59276506	successfully extracted
-[2023-01-23 21:21:13]	93.8%	extracted
-[2023-01-23 21:21:13]	0	problems with architecture
-[2023-01-23 21:21:13]	0	barcode / UMI not found
-[2023-01-23 21:21:13]	0	too short
-[2023-01-23 21:21:13]	6	low complexity
-[2023-01-23 21:21:13]	3914866	match artifacts:
-[2023-01-23 21:21:13]	3914866	OP113814.1_Oikopleura_dioica_isolate_Bar2_small_subunit_ribosomal_RNA_gene,_internal_transcribed_spacer_1,_5.8S_ribosomal_RNA_gene,_internal_transcribed_spacer_2,_and_large_subunit_ribosomal_RNA_gene,_complete_sequence
+[2023-09-12 00:02:03]	__clean__read1.fq.gz	Input file 0.
+[2023-09-12 00:02:03]	__clean__read2.fq.gz	Input file 1.
+[2023-09-12 00:02:03]	63194835	total input reads
+[2023-09-12 00:02:03]	3.02	selected threshold
+[2023-09-12 00:02:03]	59279688	successfully extracted
+[2023-09-12 00:02:03]	93.8%	extracted
+[2023-09-12 00:02:03]	0	problems with architecture
+[2023-09-12 00:02:03]	0	barcode / UMI not found
+[2023-09-12 00:02:03]	0	too short
+[2023-09-12 00:02:03]	6	low complexity
+[2023-09-12 00:02:03]	3915141	match artifacts:
+[2023-09-12 00:02:03]	3915141	OP113814.1_Oikopleura_dioica_isolate_Bar2_small_subunit_ribosomal_RNA_gene,_internal_transcribed_spacer_1,_5.8S_ribosomal_RNA_gene,_internal_transcribed_spacer_2,_and_large_subunit_ribosomal_RNA_gene,_complete_sequence
 

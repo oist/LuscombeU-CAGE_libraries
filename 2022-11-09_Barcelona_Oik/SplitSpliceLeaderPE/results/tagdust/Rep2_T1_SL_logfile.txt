@@ -1,32 +1,32 @@
-[2023-01-23 17:06:59]	Tagdust 2.33, Copyright (C) 2013 Timo Lassmann <timolassmann@gmail.com>
-[2023-01-23 17:06:59]	cmd: tagdust -t 12 -arch SL.arch -o Rep2_T1_SL __clean__read1.fq.gz __clean__read2.fq.gz 
-[2023-01-23 17:06:59]	Start Run
+[2023-09-11 18:44:09]	Tagdust 2.33, Copyright (C) 2013 Timo Lassmann <timolassmann@gmail.com>
+[2023-09-11 18:44:09]	cmd: tagdust -t 12 -arch SL.Oikopleura_diocia.arch -o Rep2_T1_SL __clean__read1.fq.gz __clean__read2.fq.gz 
+[2023-09-11 18:44:09]	Start Run
 --------------------------------------------------
-[2023-01-23 17:06:59]	Looking at file:__clean__read1.fq.gz
-[2023-01-23 17:06:59]	Searching for best architecture in file 'SL.arch'
-[2023-01-23 17:07:15]	Using: -1 S:ACTCATCCCATTTTTGAGTCCGATTTCGATTGTCTAACAG -2 R:N 
-[2023-01-23 17:07:15]	1.00 Confidence.
-[2023-01-23 17:07:15]	Looking at file:__clean__read2.fq.gz
-[2023-01-23 17:07:15]	Searching for best architecture in file 'SL.arch'
-[2023-01-23 17:07:30]	Using: -1 R:N 
-[2023-01-23 17:07:30]	1.00 Confidence.
-[2023-01-23 17:07:38]	Determining threshold for read0.
-[2023-01-23 17:07:54]	Long sequence found. Need to realloc model...
-[2023-01-23 17:09:45]	Selected Threshold:: 0.279510
-[2023-01-23 17:09:46]	Determining threshold for read1.
-[2023-01-23 17:10:03]	Long sequence found. Need to realloc model...
-[2023-01-23 17:10:05]	Selected Threshold:: 3.023334
-[2023-01-23 22:05:22]	Done.
+[2023-09-11 18:44:09]	Looking at file:__clean__read1.fq.gz
+[2023-09-11 18:44:09]	Searching for best architecture in file 'SL.Oikopleura_diocia.arch'
+[2023-09-11 18:44:22]	Using: -1 S:ACTCATCCCATTTTTGAGTCCGATTTCGATTGTCTAACAG -2 R:N 
+[2023-09-11 18:44:22]	1.00 Confidence.
+[2023-09-11 18:44:22]	Looking at file:__clean__read2.fq.gz
+[2023-09-11 18:44:22]	Searching for best architecture in file 'SL.Oikopleura_diocia.arch'
+[2023-09-11 18:44:35]	Using: -1 R:N 
+[2023-09-11 18:44:35]	1.00 Confidence.
+[2023-09-11 18:44:42]	Determining threshold for read0.
+[2023-09-11 18:44:55]	Long sequence found. Need to realloc model...
+[2023-09-11 18:46:15]	Selected Threshold:: 0.129316
+[2023-09-11 18:46:15]	Determining threshold for read1.
+[2023-09-11 18:46:29]	Long sequence found. Need to realloc model...
+[2023-09-11 18:46:31]	Selected Threshold:: 3.023334
+[2023-09-11 23:22:20]	Done.
 
-[2023-01-23 22:05:22]	__clean__read1.fq.gz	Input file 0.
-[2023-01-23 22:05:22]	__clean__read2.fq.gz	Input file 1.
-[2023-01-23 22:05:22]	150850323	total input reads
-[2023-01-23 22:05:22]	3.02	selected threshold
-[2023-01-23 22:05:22]	99273685	successfully extracted
-[2023-01-23 22:05:22]	65.8%	extracted
-[2023-01-23 22:05:22]	51530137	problems with architecture
-[2023-01-23 22:05:22]	0	barcode / UMI not found
-[2023-01-23 22:05:22]	0	too short
-[2023-01-23 22:05:22]	46501	low complexity
-[2023-01-23 22:05:22]	0	match artifacts:
+[2023-09-11 23:22:20]	__clean__read1.fq.gz	Input file 0.
+[2023-09-11 23:22:20]	__clean__read2.fq.gz	Input file 1.
+[2023-09-11 23:22:20]	150850323	total input reads
+[2023-09-11 23:22:20]	3.02	selected threshold
+[2023-09-11 23:22:20]	99274935	successfully extracted
+[2023-09-11 23:22:20]	65.8%	extracted
+[2023-09-11 23:22:20]	51528887	problems with architecture
+[2023-09-11 23:22:20]	0	barcode / UMI not found
+[2023-09-11 23:22:20]	0	too short
+[2023-09-11 23:22:20]	46501	low complexity
+[2023-09-11 23:22:20]	0	match artifacts:
 

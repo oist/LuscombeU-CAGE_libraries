@@ -1,1 +1,1 @@
-nextflow run ./main.nf --input input.csv -profile oist -w /flash/LuscombeU/deletemeCharlesPlessy/nf_tmp_CAGE2023_extractSL --arch SL.arch --rrna OP113814.fa
+nextflow run oist/plessy_splitspliceleaderpe --input input.csv -profile oist -w /flash/LuscombeU/charles-plessy/cache/deletemeInOctober --arch SL.Oikopleura_diocia.arch --rrna OP113814.fa
