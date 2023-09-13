@@ -1,0 +1,89 @@
+new
+genome /bucket/LuscombeU/common/Oikopleura/Genomes/Bar2_p4/Bar2_p4.fa
+load clusters_no.bed
+load clusters_no.old.bed
+load clusters_no.old.paraclu.bed
+load clusters_no.older.bed
+load clusters_SL.bed
+load clusters_SL.1tpm.bed
+load clusters_SL.distclu.bed
+load clusters_SL.old.bed
+
+load CAGEr_and_ZENBU_upload/Rep1_no.plus.bw   name=Rep1_no_plus tag=Reps
+setDataRange auto Rep1_no_plus
+load CAGEr_and_ZENBU_upload/Rep2_no.plus.bw   name=Rep2_no_plus tag=Reps
+setDataRange auto Rep2_no_plus
+load CAGEr_and_ZENBU_upload/Rep3_no.plus.bw   name=Rep3_no_plus tag=Reps
+setDataRange auto Rep3_no_plus
+load CAGEr_and_ZENBU_upload/Rep4_no.plus.bw   name=Rep4_no_plus tag=Reps
+setDataRange auto Rep4_no_plus
+load CAGEr_and_ZENBU_upload/D1D4_no.plus.bw   name=D1D4_no.plus
+setDataRange auto D1D4_no_plus
+load CAGEr_and_ZENBU_upload/D4D5_no.plus.bw   name=D4D5_no.plus
+setDataRange auto D4D5_no_plus
+load CAGEr_and_ZENBU_upload/X14FE_no.plus.bw  name=FE14_no.plus
+setDataRange auto FE14_no_plus
+load CAGEr_and_ZENBU_upload/X29FE_no.plus.bw  name=FE29_no.plus
+setDataRange auto FE29_no_plus
+load CAGEr_and_ZENBU_upload/X41MA_no.plus.bw  name=MA41_no.plus
+setDataRange auto MA41_no_plus
+
+load CAGEr_and_ZENBU_upload/Rep1_no.minus.bw   name=Rep1_no_minus tag=Reps
+setDataRange auto Rep1_no_minus
+load CAGEr_and_ZENBU_upload/Rep2_no.minus.bw   name=Rep2_no_minus tag=Reps
+setDataRange auto Rep2_no_minus
+load CAGEr_and_ZENBU_upload/Rep3_no.minus.bw   name=Rep3_no_minus tag=Reps
+setDataRange auto Rep3_no_minus
+load CAGEr_and_ZENBU_upload/Rep4_no.minus.bw   name=Rep4_no_minus tag=Reps
+setDataRange auto Rep4_no_minus
+load CAGEr_and_ZENBU_upload/D1D4_no.minus.bw   name=D1D4_no.minus
+setDataRange auto D1D4_no_minus
+load CAGEr_and_ZENBU_upload/D4D5_no.minus.bw   name=D4D5_no.minus
+setDataRange auto D4D5_no_minus
+load CAGEr_and_ZENBU_upload/X14FE_no.minus.bw  name=FE14_no.minus
+setDataRange auto FE14_no_minus
+load CAGEr_and_ZENBU_upload/X29FE_no.minus.bw  name=FE29_no.minus
+setDataRange auto FE29_no_minus
+load CAGEr_and_ZENBU_upload/X41MA_no.minus.bw  name=MA41_no.minus
+setDataRange auto MA41_no_minus
+
+load CAGEr_and_ZENBU_upload/Rep1_SL.plus.bw   name=Rep1_SL_plus tag=Reps
+setDataRange auto Rep1_SL_plus
+load CAGEr_and_ZENBU_upload/Rep2_SL.plus.bw   name=Rep2_SL_plus tag=Reps
+setDataRange auto Rep2_SL_plus
+load CAGEr_and_ZENBU_upload/Rep3_SL.plus.bw   name=Rep3_SL_plus tag=Reps
+setDataRange auto Rep3_SL_plus
+load CAGEr_and_ZENBU_upload/Rep4_SL.plus.bw   name=Rep4_SL_plus tag=Reps
+setDataRange auto Rep4_SL_plus
+load CAGEr_and_ZENBU_upload/D1D4_SL.plus.bw   name=D1D4_SL.plus
+setDataRange auto D1D4_SL_plus
+load CAGEr_and_ZENBU_upload/D4D5_SL.plus.bw   name=D4D5_SL.plus
+setDataRange auto D4D5_SL_plus
+load CAGEr_and_ZENBU_upload/X14FE_SL.plus.bw  name=FE14_SL.plus
+setDataRange auto FE14_SL_plus
+load CAGEr_and_ZENBU_upload/X29FE_SL.plus.bw  name=FE29_SL.plus
+setDataRange auto FE29_SL_plus
+load CAGEr_and_ZENBU_upload/X41MA_SL.plus.bw  name=MA41_SL.plus
+setDataRange auto MA41_SL_plus
+
+load CAGEr_and_ZENBU_upload/Rep1_SL.minus.bw   name=Rep1_SL_minus tag=Reps
+setDataRange auto Rep1_SL_minus
+load CAGEr_and_ZENBU_upload/Rep2_SL.minus.bw   name=Rep2_SL_minus tag=Reps
+setDataRange auto Rep2_SL_minus
+load CAGEr_and_ZENBU_upload/Rep3_SL.minus.bw   name=Rep3_SL_minus tag=Reps
+setDataRange auto Rep3_SL_minus
+load CAGEr_and_ZENBU_upload/Rep4_SL.minus.bw   name=Rep4_SL_minus tag=Reps
+setDataRange auto Rep4_SL_minus
+load CAGEr_and_ZENBU_upload/D1D4_SL.minus.bw   name=D1D4_SL.minus
+setDataRange auto D1D4_SL_minus
+load CAGEr_and_ZENBU_upload/D4D5_SL.minus.bw   name=D4D5_SL.minus
+setDataRange auto D4D5_SL_minus
+load CAGEr_and_ZENBU_upload/X14FE_SL.minus.bw  name=FE14_SL.minus
+setDataRange auto FE14_SL_minus
+load CAGEr_and_ZENBU_upload/X29FE_SL.minus.bw  name=FE29_SL.minus
+setDataRange auto FE29_SL_minus
+load CAGEr_and_ZENBU_upload/X41MA_SL.minus.bw  name=MA41_SL.minus
+setDataRange auto MA41_SL_minus
+
+load enhancers.bed
+load /bucket/LuscombeU/common/Breakpoints/Annotations/Bar2_p4.Flye/Bar2_p4.Flye.gm.gff
