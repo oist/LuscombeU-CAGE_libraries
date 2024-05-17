@@ -1,0 +1,202 @@
+---
+title: "CAGE Oikopleura"
+author: "Johannes Nicolaus Wibisana"
+date: "17/05/2024"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load the CAGE data from BAM files.
+
+```{r}
+# devtools::install_github("charles-plessy/CAGEr@barOikPrivateBranch")
+# install.packages("BSgenome.Oidioi.OIST.O10.1.0", repos="https://oist.github.io/plessy_oikgenomes_drat/")
+# devtools::install_github('a-klarkowska/CAGErAid', force = T) |> suppressPackageStartupMessages()
+
+library(CAGErAid)
+library("CAGEr")
+library("BSgenome.Oidioi.OIST.O10.1.0")
+
+pathsToInputFiles <- list.files("/bucket/LuscombeU/live/charles-plessy/CAGE/2022-02-09_Osaka_Oik_O10_1.0/AlignWithRNAseqPipelinePE/result/hisat2/",
+                                pattern = "*.bam$",
+                                full.names = TRUE)
+sampleLabels <- sub( ".sorted.bam", "", basename(pathsToInputFiles))
+
+ce <-
+  CAGEexp( metadata = list(genomeName = "BSgenome.Oidioi.OIST.O10.1.0")
+         , colData  = DataFrame( inputFiles     = pathsToInputFiles
+                               , sampleLabels   = sampleLabels
+                               , inputFilesType = "bamPairedEnd"
+                               , row.names      = sampleLabels))
+
+ce <- getCTSS(ce, useMulticore = FALSE, correctSystematicG=FALSE, removeFirstG=FALSE)
+
+ce_raw <- ce
+
+saveRDS(ce, "ce.rds")
+
+ce <- readRDS("ce.rds")
+
+```
+
+Polish sample data
+
+```{r}
+librarySizes(ce)
+colData(ce)
+ce$linkerType[grepl("GACTCA", sampleLabels(ce))] <- "GACTCA"
+ce$linkerType[grepl("GN5",    sampleLabels(ce))] <- "GN5"
+ce$SLfound <- grepl("SL_yes",    sampleLabels(ce))
+ce$sampleType[grepl("EB", sampleLabels(ce))] <- "EB"
+ce$sampleType[grepl("DE", sampleLabels(ce))] <- "DE"
+ce$RNA <- sampleLabels(ce) |> sub(pat = ".GAC.*|.GN5.*", rep = "") |> unname()
+ce$Description <-
+  paste0("Oikopleura dioica pilot CAGE (deleteme2) library prepared by DNAFORM from the RNA sample ",
+       ce$RNA, " using a ", ce$linkerType, " linker. ",
+       ifelse(ce$SLfound, "A splice leader sequence was found and removed. ",
+              "No splice leader sequence was found. "),
+       "The reads where then aligned with HISAT2 using the nf-core RNA-seq pipeline version 3.4.")
+
+colData(ce)
+```
+
+Annotate
+
+```{r}
+gff <- rtracklayer::import("/bucket/LuscombeU/nico/genomes/odioica/Oikopleuradioica_genomeannotation/O10v1/v1.0/O10_primary.v1.0.gtf")
+gff$type <- as.character(gff$type)
+gff$type[gff$type == "CDS"] <- "exon"
+gff <- gff[gff$type %in% c("transcript", "intron", "exon")]
+gff$gene_name[  gff$type %in% "transcript"] <- gff$ID    [  gff$type %in% "transcript"]
+gff$gene_name[! gff$type %in% "transcript"] <- gff$Parent[! gff$type %in% "transcript"]
+
+ce <- annotateCTSS(ce, gff)
+colData(ce)[,c("librarySizes", "promoter", "exon", "intron", "unknown")]
+plotAnnot(ce, "counts")
+```
+
+Correlate
+
+```{r}
+#Too slow
+# corr.m <- plotCorrelation2( ce, samples = "all"
+#                           , tagCountThreshold = 100, applyThresholdBoth = FALSE
+#                           , method = "pearson")
+```
+
+Profile
+
+```{r}
+# plotReverseCumulatives(ce[,ce$SLfound == TRUE ], fitInRange = c(3e3, 3e5), onePlot = TRUE, main = "SL found")
+# plotReverseCumulatives(ce[,ce$SLfound == FALSE], fitInRange = c(3e3, 3e5), onePlot = TRUE, main = "SL not found")
+
+ce <- summariseChrExpr(ce)
+seqNameTotalsSE(ce)|>assay()
+```
+
+Cluster
+
+```{r}
+ce <- normalizeTagCount(ce, method = "simpleTpm")
+ce <- clusterCTSS(ce)
+ce <- cumulativeCTSSdistribution(ce)
+ce <- quantilePositions(ce)
+plotInterquantileWidth(ce, clusters = "tagClusters", tpmThreshold = 3, qLow = 0.1, qUp = 0.9)
+ce <- aggregateTagClusters(ce)
+ce <- annotateConsensusClusters(ce, gff)
+consensusClustersGR(ce)
+ce$outOfClusters / ce$librarySizes
+```
+
+Export CTSS
+
+```{r}
+trks <- ce |> CTSStagCountGR("all") |> exportToTrack(ce, oneTrack = FALSE)
+for (n in seq_along(trks)) {
+  name <- sampleLabels(ce)[n]
+  rtracklayer::export.bed(trks[n], paste0(name, ".ctss.bed"))
+}
+
+.ZENBU_filelist <- function(DF, file = NULL, suffix, prefix = NULL) {
+  DF_sub <- DF
+  DF_sub$sampleLabels <- DF_sub$inputFiles <- DF_sub$inputFilesType <- DF_sub$Description <- NULL
+  if(is.null(DF$Description)) DF$Description <- ""
+  out <- data.frame(path = paste(DF$sampleLabels|>unname(), suffix, sep = "."),
+                    name = DF$sampleLabels|>unname(),
+                    desc = DF$Description)
+  out$meta <- sapply(1:nrow(DF_sub), \(n) {
+    paste(colnames(DF_sub), sapply(DF_sub[n,,drop =TRUE], unname), sep = "=", collapse = ";")
+  })
+  if(is.null(file)) {
+    return(out)
+  } else {
+    write.table(out, file, quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
+  }
+  invisible(out)
+}
+
+.ZENBU_filelist(colData(ce), "ZENBU_upload_bed.tsv", suffix = "ctss.bed")
+
+# zenbu_upload -url https://fantom.gsc.riken.jp/zenbu/ -filelist ZENBU_upload_bed.tsv -assembly OKI2018_I69_1.0 -score_exp raw -collab orXQCELWOZfm7KLNMMpPdD
+```
+
+
+## Run CAGERaid
+```{r}
+
+
+ce_raw <- readRDS("ce.rds")
+
+
+gff <- quickGFF("/bucket/LuscombeU/nico/genomes/odioica/Oikopleuradioica_genomeannotation/O10v1/v1.0/O10_primary.v1.0.gtf")
+
+ce_mod <- quickPolish(ce_raw)
+
+ce_mod_nosl <- ce_mod[, !ce_mod$SLfound]
+ce_mod_sl <- ce_mod[, ce_mod$SLfound]
+
+ce_mod_nosl <- normalizeTagCount(ce_mod_nosl, 'powerLaw')
+ce_mod_sl <- normalizeTagCount(ce_mod_sl, 'simpleTpm')
+
+ce_mod_nosl <- quickCC(ce_mod_nosl, sl_found = FALSE, gff = gff)
+ce_mod_sl <- quickCC(ce_mod_sl, sl_found = TRUE, gff = gff)
+
+
+# saveRDS(ce_mod_nosl, file = './O10toO10_no.rds')
+# saveRDS(ce_mod_sl, file = './O10toO10_sl.rds')
+
+
+ce_mod <- list(no = ce_mod_nosl, sl = ce_mod_sl)
+
+
+# output bed files of consensus clusters
+cctrack <- makeBed(ce_mod$no, sl_found = FALSE)
+
+cctrack[cctrack$itemRgb == "black"] |> score() |> decode() |> log10() |> hist(br =
+                                                                               100)
+cctrack[cctrack$itemRgb == "grey"]  |> score() |> decode() |> log10() |> hist(br =
+                                                                               100)
+rtracklayer::export.bed(cctrack, paste0('./consensus_clusters_nosl_OSAtoO10.bed'))
+
+
+cctrack <- makeBed(ce_mod$sl, sl_found = T)
+
+cctrack[cctrack$itemRgb == "black"] |> score() |> decode() |> log10() |> hist(br =
+                                                                               100)
+cctrack[cctrack$itemRgb == "grey"]  |> score() |> decode() |> log10() |> hist(br =
+                                                                               100)
+rtracklayer::export.bed(cctrack, paste0('./consensus_clusters_sl_OSAtoO10.bed'))
+
+
+```
+
+
+
+```{r sessionInfo}
+sessionInfo()
+```
